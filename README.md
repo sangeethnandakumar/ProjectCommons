@@ -5,6 +5,25 @@ sudo certbot certonly --standalone -d example.com
 ```
 <hr/>
 
+# Updated Expired Certificates
+Stop Apache
+```bash
+sudo systemctl stop apache2
+```
+Update SSL Certificates using certbot (Let's Encrypt CLI tool)
+```bash
+sudo certbot renew
+```
+Verify
+```bash
+sudo certbot certificates
+```
+Restart Apache
+```bash
+sudo systemctl start apache2
+```
+<hr/>
+
 # Docker Commands
 
 ### STOP ALL
