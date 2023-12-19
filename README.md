@@ -3,9 +3,14 @@ Use this command to generate an SSL certificate
 ```bash
 sudo certbot certonly --standalone -d example.com
 ```
+# Renew Specific SSL CERT
+```bash
+sudo certbot renew --cert-name twileloop.com --force-renewal
+```
+
 <hr/>
 
-# Updated Expired Certificates
+# Auto Renew All Expired Certificates
 Stop Apache
 ```bash
 sudo systemctl stop apache2
