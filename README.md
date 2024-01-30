@@ -24,6 +24,12 @@ sudo certbot renew --cert-name twileloop.com --force-renewal
 docker run -d -p 6379:6379 -v /docker_volumes/redis:/data --name 'rediscache' redis redis-server --requirepass ******
 ```
 
+# Mongo
+## Mount Volume And Start MongoDB (With Username & Password)
+
+```
+docker run -d -p 27017:27017 -v /docker_volumes/mongo:/data/db --name mongodb -e MONGO_INITDB_ROOT_USERNAME=root -e MONGO_INITDB_ROOT_PASSWORD=****** mongo
+```
 
 # Auto Renew All Expired Certificates
 Stop Apache
