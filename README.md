@@ -27,9 +27,17 @@ docker run -d -p 6379:6379 -v /docker_volumes/redis:/data --name 'rediscache' re
 # Mongo
 ## Mount Volume And Start MongoDB (With Username & Password)
 
-```
+```bash
 docker run -d -p 27017:27017 -v /docker_volumes/mongo:/data/db --name mongodb -e MONGO_INITDB_ROOT_USERNAME=root -e MONGO_INITDB_ROOT_PASSWORD=****** mongo
 ```
+
+# Seq
+## Mount Volume And Start Seq Log Server (With Username & Password)
+
+```bash
+docker run -d -p 5341:80 -v /docker_volumes/seq:/data --name seq -e ACCEPT_EULA=Y -e SEQ_FIRSTRUN_ADMINUSERNAME='********' -e SEQ_FIRSTRUN_ADMINPASSWORDHASH="$(echo '********' | docker run --rm -i datalust/seq config hash)" datalust/seq
+```
+
 
 # Auto Renew All Expired Certificates
 Stop Apache
