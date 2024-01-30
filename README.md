@@ -10,6 +10,14 @@ sudo certbot renew --cert-name twileloop.com --force-renewal
 
 <hr/>
 
+# Redis
+## Mount Volume And Start Redis (With Password)
+
+```bash
+docker run -d -p 6379:6379 -v /docker_volumes/redis:/data --name 'rediscache' redis redis-server --requirepass ******
+```
+
+
 # Auto Renew All Expired Certificates
 Stop Apache
 ```bash
