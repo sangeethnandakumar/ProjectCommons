@@ -1,3 +1,10 @@
+# Docker remove all volumes
+```bash
+docker rm -vf $(docker ps -a -q)
+docker volume prune -f
+```
+
+
 # Generate SSL CERT
 Use this command to generate an SSL certificate
 ```bash
