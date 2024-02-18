@@ -138,6 +138,14 @@ jobs:
           username: ${{ env.SERVER_USERNAME }}
           key: ${{ env.SERVER_SSH }}
           script: sudo systemctl stop nginx
+
+      - name: Kill Running Certbot Processes
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.SERVER_HOST }}
+          username: ${{ env.SERVER_USERNAME }}
+          key: ${{ env.SERVER_SSH }}
+          script: sudo killall certbot || true
       
       - name: Setup SSL Certificate
         uses: appleboy/ssh-action@master
