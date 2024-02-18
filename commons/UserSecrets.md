@@ -1,7 +1,7 @@
 # User Secrets
 
 ### Initialise User-Secrets
-```bash
+```powershell
 dotnet user-secrets init
 ```
 
@@ -27,16 +27,16 @@ Sample appsettings.json section
 ```
 
 ### List User-Secrets
-```bash
+```powershell
 dotnet user-secrets list"
 ```
 
 ### Set User-Secrets
-```bash
+```powershell
 dotnet user-secrets set "Database:ConnectionString:DodoDB" "Database=SomeDB.db;Username=someuser;Password=****"
 ```
 
 ### Remove User-Secrets
-```bash
+```powershell
 dotnet user-secrets remove "Database:ConnectionString:DodoDB"
 ```
