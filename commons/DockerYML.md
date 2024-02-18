@@ -11,6 +11,7 @@ on:
 env:
   # Docker Config  
   IMAGE_NAME           : 'mobile-api'
+  NGINX_DOMAIN         : 'api.twileloop.com'
   SERVER_PORT          : 5003
   CONTAINER_PORT       : 8080
   
@@ -88,7 +89,78 @@ jobs:
             mkdir -p /docker_volumes/${{ env.IMAGE_NAME }}
             # Run the Docker image with the specified port and volume mappings
             docker run -d -p ${{ env.SERVER_PORT }}:${{ env.CONTAINER_PORT }} -v /docker_volumes/${{ env.IMAGE_NAME }}:/app/publish --name ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}
+
+      - name: Configure NGINX
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.SERVER_HOST }}
+          username: ${{ env.SERVER_USERNAME }}
+          key: ${{ env.SERVER_SSH }}
+          script: |
+            # Check if the NGINX config exists
+            if [ ! -f "/etc/nginx/sites-enabled/${{ env.NGINX_DOMAIN }}" ]; then
+              # If it doesn't exist, create the NGINX config
+              cat << EOF > /etc/nginx/sites-enabled/${{ env.NGINX_DOMAIN }}
+              server {
+                  listen 80;
+                  server_name ${{ env.NGINX_DOMAIN }};
+                  return 301 https://\$host\$request_uri;
+              }
+      
+              server {
+                  listen 443 ssl http2;
+                  server_name ${{ env.NGINX_DOMAIN }};
+      
+                  location / {
+                      proxy_pass http://localhost:${{ env.SERVER_PORT }};
+                      proxy_set_header Upgrade \$http_upgrade;
+                      proxy_set_header Connection "upgrade";
+                      proxy_cache off;
+                      proxy_http_version 1.1;
+                      proxy_buffering off;
+                      proxy_read_timeout 100s;
+                      proxy_set_header Host \$host;
+                      proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                      proxy_set_header X-Forwarded-Proto \$scheme;
+                      proxy_set_header X-Real-IP \$remote_addr;
+                  }
+      
+                  ssl_certificate /etc/letsencrypt/live/${{ env.NGINX_DOMAIN }}/fullchain.pem;
+                  ssl_certificate_key /etc/letsencrypt/live/${{ env.NGINX_DOMAIN }}/privkey.pem;
+              }
+            EOF
+            fi
+
+      - name: Stop NGINX
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.SERVER_HOST }}
+          username: ${{ env.SERVER_USERNAME }}
+          key: ${{ env.SERVER_SSH }}
+          script: sudo systemctl stop nginx
+      
+      - name: Setup SSL Certificate
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.SERVER_HOST }}
+          username: ${{ env.SERVER_USERNAME }}
+          key: ${{ env.SERVER_SSH }}
+          script: |
+            # Check if the SSL certificate exists and is not expired
+            if ! sudo certbot certificates | grep -B1 -A2 ${{ env.NGINX_DOMAIN }} | grep -q "VALID"; then
+              # If it doesn't exist or is expired, create or renew the SSL certificate
+              sudo certbot certonly --standalone -d ${{ env.NGINX_DOMAIN }} --non-interactive --agree-tos --email your-email@example.com --http-01-port=80
+            fi
+      
+      - name: Start NGINX
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.SERVER_HOST }}
+          username: ${{ env.SERVER_USERNAME }}
+          key: ${{ env.SERVER_SSH }}
+          script: sudo systemctl start nginx
 ```
+
 ### Docker File Expectation
 ```dockerfile
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
