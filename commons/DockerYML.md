@@ -10,16 +10,14 @@ on:
 
 env:
   # Docker Config  
-  IMAGE_NAME           : 'image-name'
-  SERVER_PORT          : 5002
+  IMAGE_NAME           : 'MobileAPI'
+  SERVER_PORT          : 5003
   CONTAINER_PORT       : 8080
-  HOST_VOLUME_PATH     : '/docker_volumes/${{ env.IMAGE_NAME }}'
-  DOCKER_VOLUME_PATH   : '/app/publish'
   
   # Dotnet Config
   DOTNET_VERSION       : '8.0.101'
-  DOCKER_FILE_LOCATION : './Api'
-  PROJECT_PATH         : './Api/Api.csproj'
+  DOCKER_FILE_LOCATION : './MobileAPI'
+  PROJECT_PATH         : './MobileAPI/MobileAPI.csproj'
   
   # Linux Config  
   SERVER_HOST: 'twileloop.com'
@@ -89,8 +87,7 @@ jobs:
             # Ensure the host volume directory exists
             mkdir -p /docker_volumes/${{ env.IMAGE_NAME }}
             # Run the Docker image with the specified port and volume mappings
-            docker run -d -p ${{ env.SERVER_PORT }}:${{ env.CONTAINER_PORT }} -v ${{ env.HOST_VOLUME_PATH }}:${{ env.DOCKER_VOLUME_PATH }} --name ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}
-
+            docker run -d -p ${{ env.SERVER_PORT }}:${{ env.CONTAINER_PORT }} -v /docker_volumes/${{ env.IMAGE_NAME }}:/app/publish --name ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}
 ```
 ### Docker File Expectation
 ```dockerfile
