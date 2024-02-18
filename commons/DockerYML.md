@@ -10,7 +10,7 @@ on:
 
 env:
   # Docker Config  
-  IMAGE_NAME           : 'MobileAPI'
+  IMAGE_NAME           : 'mobile-api'
   SERVER_PORT          : 5003
   CONTAINER_PORT       : 8080
   
