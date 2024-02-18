@@ -102,7 +102,7 @@ export default App;
 # ServerSide SignalR
 
 ### Ngnix Proxy & WebSocket Support
-```json
+```
 server {
     listen 80;
     server_name example.com;
