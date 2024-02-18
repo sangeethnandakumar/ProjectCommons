@@ -13,6 +13,8 @@ env:
   IMAGE_NAME           : 'image-name'
   SERVER_PORT          : 5002
   CONTAINER_PORT       : 8080
+  HOST_VOLUME_PATH     : '/docker_volumes/${{ env.IMAGE_NAME }}'
+  DOCKER_VOLUME_PATH   : '/app/publish'
   
   # Dotnet Config
   DOTNET_VERSION       : '8.0.101'
@@ -66,17 +68,28 @@ jobs:
           username: ${{ env.SERVER_USERNAME }}
           key: ${{ env.SERVER_SSH }}
           script: |
+            # Check if the Docker image exists
             if [ "$(docker images -q ${{ env.IMAGE_NAME }})" ]; then
+              # Check if a container from this image is currently running
               if [ "$(docker ps -aq -f ancestor=${{ env.IMAGE_NAME }})" ]; then
+                # Stop and remove the running container
                 docker stop $(docker ps -aq -f ancestor=${{ env.IMAGE_NAME }})
                 docker rm $(docker ps -aq -f ancestor=${{ env.IMAGE_NAME }})
               fi
+              # Remove the Docker image
               docker rmi ${{ env.IMAGE_NAME }}
-              rm -rf /docker_volumes/${{ env.IMAGE_NAME }}
             fi
+            # Check if the host volume directory exists
+            if [ -d "${{ env.HOST_VOLUME_PATH }}" ]; then
+              # If it exists, clear the host volume directory
+              rm -rf ${{ env.HOST_VOLUME_PATH }}/*
+            fi
+            # Load the Docker image from the tar file
             docker load < /tmp/${{ env.IMAGE_NAME }}.tar.gz
+            # Ensure the host volume directory exists
             mkdir -p /docker_volumes/${{ env.IMAGE_NAME }}
-            docker run -d -p ${{ env.SERVER_PORT }}:${{ env.CONTAINER_PORT }} --name ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}
+            # Run the Docker image with the specified port and volume mappings
+            docker run -d -p ${{ env.SERVER_PORT }}:${{ env.CONTAINER_PORT }} -v ${{ env.HOST_VOLUME_PATH }}:${{ env.DOCKER_VOLUME_PATH }} --name ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}
 
 ```
 ### Docker File Expectation
