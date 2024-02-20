@@ -15,8 +15,13 @@ env:
   SERVER_PORT          : 5003
   DOCKER_FILE_LOCATION : './MobileAPI'
   PROJECT_PATH         : './MobileAPI/MobileAPI.csproj'
-  ENV_VARS             : VAR1=${{ secrets.VAR1 }},VAR2=${{ secrets.VAR2 }},VAR3=${{ secrets.VAR3 }}
-  
+  HOST_VOLUME_PATH     : '/docker_volumes/mobile-api'
+  DOCKER_ENVS: > 
+    Major__Urls__Url=${{ secrets.MAJOR_URL }}
+    Major__APIKey=${{ secrets.APIKEY }}
+    Major__ConnectionStrings__SQLServer=${{ secrets.CONNSTR }}
+
+   
   # Dotnet Config
   DOTNET_VERSION       : '8.0.101'
   CONTAINER_PORT       : 8080
@@ -61,6 +66,39 @@ jobs:
           source: "./${{ env.IMAGE_NAME }}.tar.gz"
           target: "/tmp"
 
+      - name: Ensure host volume directory exists
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.SERVER_HOST }}
+          username: ${{ env.SERVER_USERNAME }}
+          key: ${{ env.SERVER_SSH }}
+          script: |
+            # Check if the host volume directory exists
+            if [ ! -d "${{ env.HOST_VOLUME_PATH }}" ]; then
+              # If it doesn't exist, create the host volume directory
+              mkdir -p ${{ env.HOST_VOLUME_PATH }}
+            fi
+      
+      - name: Ensure host volume directory exists and create env file
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.SERVER_HOST }}
+          username: ${{ env.SERVER_USERNAME }}
+          key: ${{ env.SERVER_SSH }}
+          script: |
+            # Check if the host volume directory exists
+            if [ ! -d "${{ env.HOST_VOLUME_PATH }}" ]; then
+              # If it doesn't exist, create the host volume directory
+              mkdir -p ${{ env.HOST_VOLUME_PATH }}
+            fi
+            # Create or replace the prod.env file
+            : > ${{ env.HOST_VOLUME_PATH }}/prod.env  # This line creates or replaces the file without adding a newline
+            IFS=$'\n'
+            for line in ${{ env.DOCKER_ENVS }}
+            do
+              echo $line >> ${{ env.HOST_VOLUME_PATH }}/prod.env
+            done
+      
       - name: Load and Run Docker Image on VM
         uses: appleboy/ssh-action@master
         with:
@@ -79,18 +117,11 @@ jobs:
               # Remove the Docker image
               docker rmi ${{ env.IMAGE_NAME }}
             fi
-            # Check if the host volume directory exists
-            if [ -d "${{ env.HOST_VOLUME_PATH }}" ]; then
-              # If it exists, clear the host volume directory
-              rm -rf ${{ env.HOST_VOLUME_PATH }}/*
-            fi
             # Load the Docker image from the tar file
             docker load < /tmp/${{ env.IMAGE_NAME }}.tar.gz
-            # Ensure the host volume directory exists
-            mkdir -p /docker_volumes/${{ env.IMAGE_NAME }}
             # Run the Docker image with the specified port and volume mappings
-            docker run -d -p ${{ env.SERVER_PORT }}:${{ env.CONTAINER_PORT }} -v /docker_volumes/${{ env.IMAGE_NAME }}:/app/publish -e ${{ env.ENV_VARS }} --name ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}
-
+            docker run -d --env-file ${{ env.HOST_VOLUME_PATH }}/prod.env -p ${{ env.SERVER_PORT }}:${{ env.CONTAINER_PORT }} -v /docker_volumes/${{ env.IMAGE_NAME }}:/app/publish --name ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}
+      
       - name: Configure NGINX
         uses: appleboy/ssh-action@master
         with:
