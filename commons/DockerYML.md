@@ -37,6 +37,22 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
+      - name: Cache .NET build output
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.PROJECT_PATH }}/obj
+          key: ${{ runner.os }}-dotnet-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-dotnet-
+      
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+      
       - name: Set up .NET
         uses: actions/setup-dotnet@v1
         with:
@@ -51,8 +67,16 @@ jobs:
       - name: Publish
         run: dotnet publish ${{ env.PROJECT_PATH }} --configuration Release --no-build --output './publish/'
 
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('**/Dockerfile') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
       - name: Build Docker Image
-        run: docker build -t ${{ env.IMAGE_NAME }} ${{ env.DOCKER_FILE_LOCATION }}
+        run: docker build --cache-from=type=local,src=/tmp/.buildx-cache --build-arg BUILDKIT_INLINE_CACHE=1 -t ${{ env.IMAGE_NAME }} ${{ env.DOCKER_FILE_LOCATION }}
 
       - name: Save Docker Image
         run: docker save ${{ env.IMAGE_NAME }} | gzip > ${{ env.IMAGE_NAME }}.tar.gz
@@ -66,39 +90,6 @@ jobs:
           source: "./${{ env.IMAGE_NAME }}.tar.gz"
           target: "/tmp"
 
-      - name: Ensure host volume directory exists
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ env.SERVER_HOST }}
-          username: ${{ env.SERVER_USERNAME }}
-          key: ${{ env.SERVER_SSH }}
-          script: |
-            # Check if the host volume directory exists
-            if [ ! -d "${{ env.HOST_VOLUME_PATH }}" ]; then
-              # If it doesn't exist, create the host volume directory
-              mkdir -p ${{ env.HOST_VOLUME_PATH }}
-            fi
-      
-      - name: Ensure host volume directory exists and create env file
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ env.SERVER_HOST }}
-          username: ${{ env.SERVER_USERNAME }}
-          key: ${{ env.SERVER_SSH }}
-          script: |
-            # Check if the host volume directory exists
-            if [ ! -d "${{ env.HOST_VOLUME_PATH }}" ]; then
-              # If it doesn't exist, create the host volume directory
-              mkdir -p ${{ env.HOST_VOLUME_PATH }}
-            fi
-            # Create or replace the prod.env file
-            : > ${{ env.HOST_VOLUME_PATH }}/prod.env  # This line creates or replaces the file without adding a newline
-            IFS=$'\n'
-            for line in ${{ env.DOCKER_ENVS }}
-            do
-              echo $line >> ${{ env.HOST_VOLUME_PATH }}/prod.env
-            done
-      
       - name: Load and Run Docker Image on VM
         uses: appleboy/ssh-action@master
         with:
@@ -129,9 +120,12 @@ jobs:
           username: ${{ env.SERVER_USERNAME }}
           key: ${{ env.SERVER_SSH }}
           script: |
-            # Check if the NGINX config exists
-            if [ ! -f "/etc/nginx/sites-enabled/${{ env.NGINX_DOMAIN }}" ]; then
-              # If it doesn't exist, create the NGINX config
+            # Check if the NGINX config has changed
+            local_config_hash=$(sha256sum /etc/nginx/sites-enabled/${{ env.NGINX_DOMAIN }} 2>/dev/null || true)
+            remote_config_hash=$(ssh {{ env.SERVER_USERNAME }}@${{ env.SERVER_HOST }} "sha256sum /etc/nginx/sites-enabled/${{ env.NGINX_DOMAIN }}" 2>/dev/null || true)
+
+            if [ "$local_config_hash" != "$remote_config_hash" ]; then
+              # If the config has changed, create the NGINX config
               cat << EOF > /etc/nginx/sites-enabled/${{ env.NGINX_DOMAIN }}
               server {
                   listen 80;
@@ -186,9 +180,9 @@ jobs:
           username: ${{ env.SERVER_USERNAME }}
           key: ${{ env.SERVER_SSH }}
           script: |
-            # Check if the SSL certificate exists and is not expired
+            # Check if the SSL certificate is still valid
             if ! sudo certbot certificates | grep -B1 -A2 ${{ env.NGINX_DOMAIN }} | grep -q "VALID"; then
-              # If it doesn't exist or is expired, create or renew the SSL certificate
+              # If it's not valid, create or renew the SSL certificate
               sudo certbot certonly --standalone -d ${{ env.NGINX_DOMAIN }} --non-interactive --agree-tos --email your-email@example.com --http-01-port=80
             fi
       
