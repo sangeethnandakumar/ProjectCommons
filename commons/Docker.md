@@ -9,6 +9,11 @@
 sudo docker run -d --name prometheus -p 9090:9090 -u 0:0 -v /docker_volumes/prometheus:/opt/bitnami/prometheus/data bitnami/prometheus:latest
 ```
 
+### Graphana
+```powershell
+docker run -d --name=grafana -p 3000:3000 grafana/grafana
+```
+
 ### Redis
 ##### Mount Volume And Start Redis (With Password)
 
