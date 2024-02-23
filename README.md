@@ -7,6 +7,8 @@ Contains common setup and files to enable fast prototyping of complex applicatio
 
 File | Title | Description
 --- | --- | ---
+<a href='commons/OpenTelemetry.md'>Open Telemetry</a> | Observability | OPen telemetry integration with Promethieus
+<a href='commons/GitIgnore.md'>GitIgnore</a> | Standard GitIgnore | With appsettings.Development.json ignored for secret keeping best practice
 <a href='commons/DockerYML.md'>DockerYML</a> | Docker Build Deploy & Run | Ready to use YML for GitHub actions to enable docker build, deploy and run on server
 <a href='commons/ApiJs.md'>Api.js</a> | API Call Helper | Api.js is a plug and play API helper built using Axios in reveiling module pattern into React apps
 <a href='commons/LatchJs.md'>Latch.js</a> | SignalR Helper | Latch.js is a plug and play setup for integrating SignalR into React apps in a breeze along server config
