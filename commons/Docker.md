@@ -6,7 +6,7 @@
 ### Promethius
 ##### It need root access within the container, So pass `-u 0:0` to docker
 ```powershell
-sudo docker run -d --name prometheus -p 9090:9090 -u 0:0 -v /docker_volumes/prometheus:/opt/bitnami/prometheus/data bitnami/prometheus:latest
+sudo docker run -d --name prometheus -p 9090:9090 -u 0:0 -v /docker_volumes/prometheus:/opt/bitnami/prometheus/data bitnami/prometheus:2.49.1-debian-12-r9
 ```
 
 ### Graphana
