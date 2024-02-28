@@ -27,19 +27,19 @@ sudo apt install docker-ce docker-ce-cli containerd.io
 ### Promethius
 ##### It need root access within the container, So pass `-u 0:0` to docker
 ```powershell
-sudo docker run -d --name prometheus -p 9090:9090 -u 0:0 -v /docker_volumes/prometheus:/opt/bitnami/prometheus/data bitnami/prometheus:2.49.1-debian-12-r9
+docker run -d --name=prometheus -p 9090:9090 -u 0:0 -v /docker_volumes/prometheus:/opt/bitnami/prometheus/data bitnami/prometheus
 ```
 
 ### Graphana
 ```powershell
-docker run -d --name=grafana -p 3000:3000 grafana/grafana
+docker run -d -u 0:0 --name=grafana -p 3000:3000 -e "GF_SECURITY_ADMIN_USER=root" -e "GF_SECURITY_ADMIN_PASSWORD=*****" -v /docker_volumes/grafana:/var/lib/grafana grafana/grafana
 ```
 
 ### Redis
 ##### Mount Volume And Start Redis (With Password)
 
 ```powershell
-docker run -d -p 6379:6379 -v /docker_volumes/redis:/data --name 'rediscache' redis redis-server --requirepass ******
+docker run -d -u 0:0 -p 6379:6379 -v /docker_volumes/redis:/data --name 'redis' redis redis-server --requirepass '****'
 ```
 
 #
