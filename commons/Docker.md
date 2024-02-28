@@ -3,14 +3,20 @@
 ## Install Docker
 ```powershell
 sudo apt update
-
+```
+```powershell
 sudo apt install apt-transport-https ca-certificates curl software-properties-common
-
+```
+```powershell
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-
+```
+```powershell
 echo "deb [signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-
+```
+```powershell
+sudo apt update
+```
+```powershell
 sudo apt install docker-ce docker-ce-cli containerd.io
 ```
 
