@@ -42,19 +42,18 @@ docker run -d -u 0:0 --name=grafana -p 3000:3000 -e "GF_SECURITY_ADMIN_USER=root
 docker run -d -u 0:0 -p 6379:6379 -v /docker_volumes/redis:/data --name 'redis' redis redis-server --requirepass '****'
 ```
 
-#
-## Mongo
+### Mongo
 ##### Mount Volume And Start MongoDB (With Username & Password)
 
 ```powershell
-docker run -d -p 27017:27017 -v /docker_volumes/mongo:/data/db --name mongodb -e MONGO_INITDB_ROOT_USERNAME=root -e MONGO_INITDB_ROOT_PASSWORD=****** mongo
+docker run -d -p 27017:27017 -v /docker_volumes/mongo:/data/db --name mongodb -e MONGO_INITDB_ROOT_USERNAME='root' -e MONGO_INITDB_ROOT_PASSWORD='*****' mongo
 ```
 
 ### Seq
 ##### Mount Volume And Start Seq Log Server (With Username & Password)
 
 ```powershell
-docker run -d -p 5341:80 -v /docker_volumes/seq:/data --name seq -e ACCEPT_EULA=Y -e SEQ_FIRSTRUN_ADMINUSERNAME='********' -e SEQ_FIRSTRUN_ADMINPASSWORDHASH="$(echo '********' | docker run --rm -i datalust/seq config hash)" datalust/seq
+docker run -d -p 5341:80 -v /docker_volumes/seq:/data --name seq -e ACCEPT_EULA=Y -e SEQ_FIRSTRUN_ADMINUSERNAME='root' -e SEQ_FIRSTRUN_ADMINPASSWORDHASH="$(echo '*****' | docker run --rm -i datalust/seq config hash)" datalust/seq
 ```
 
 ### WordPress + MySQL setup (By connecting with network)
