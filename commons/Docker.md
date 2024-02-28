@@ -1,5 +1,11 @@
 # Docker Commands
 
+## COPY/PASTE
+```powershell
+docker cp prometheus:/etc/prometheus/prometheus.yml /docker_volumes/temp/prometheus.yml
+docker cp /docker_volumes/temp/prometheus.yml prometheus:/etc/prometheus/prometheus.yml 
+```
+
 ## Install Docker
 ```powershell
 sudo apt update
@@ -29,9 +35,7 @@ sudo apt install docker-ce docker-ce-cli containerd.io
 ```powershell
 docker run -d --name=prometheus -p 9090:9090 -u 0:0 -v /docker_volumes/prometheus:/opt/bitnami/prometheus/data bitnami/prometheus
 ```
-```powershell
-docker cp prometheus-container:/etc/prometheus/prometheus.yml /docker_volumes/temp/prometheus.yml
-```
+
 
 ### Graphana
 ```powershell
