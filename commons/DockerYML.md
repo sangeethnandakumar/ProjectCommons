@@ -90,6 +90,26 @@ jobs:
           source: "./${{ env.IMAGE_NAME }}.tar.gz"
           target: "/tmp"
 
+      - name: Ensure host volume directory exists and create env file
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.SERVER_HOST }}
+          username: ${{ env.SERVER_USERNAME }}
+          key: ${{ env.SERVER_SSH }}
+          script: |
+            # Check if the host volume directory exists
+            if [ ! -d "${{ env.HOST_VOLUME_PATH }}" ]; then
+              # If it doesn't exist, create the host volume directory
+              mkdir -p ${{ env.HOST_VOLUME_PATH }}
+            fi
+            # Create or replace the prod.env file
+            : > ${{ env.HOST_VOLUME_PATH }}/prod.env
+            IFS=$'\n'
+            for line in ${{ env.DOCKER_ENVS }}
+            do
+              echo $line >> ${{ env.HOST_VOLUME_PATH }}/prod.env
+            done
+
       - name: Load and Run Docker Image on VM
         uses: appleboy/ssh-action@master
         with:
