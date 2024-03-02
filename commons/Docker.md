@@ -2,8 +2,12 @@
 
 ## COPY/PASTE
 ```powershell
+//Promethieus Config
 docker cp prometheus:/etc/prometheus/prometheus.yml /docker_volumes/temp/prometheus.yml
-docker cp /docker_volumes/temp/prometheus.yml prometheus:/etc/prometheus/prometheus.yml 
+docker cp /docker_volumes/temp/prometheus.yml prometheus:/etc/prometheus/prometheus.yml
+
+//Another example
+docker cp 9c0c28810d4a:/app/Ebooks /backups/Ebooks
 ```
 
 ## Install Docker
