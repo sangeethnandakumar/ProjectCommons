@@ -10,12 +10,12 @@ on:
 
 env:
   # Docker Config  
-  IMAGE_NAME           : 'mobile-api'
-  NGINX_DOMAIN         : 'api.twileloop.com'
-  SERVER_PORT          : 5003
-  DOCKER_FILE_LOCATION : './MobileAPI'
-  PROJECT_PATH         : './MobileAPI/MobileAPI.csproj'
-  HOST_VOLUME_PATH     : '/docker_volumes/mobile-api'
+  IMAGE_NAME           : 'rahul.twileloop.com'
+  NGINX_DOMAIN         : 'rahul.twileloop.com'
+  SERVER_PORT          : 5002
+  DOCKER_FILE_LOCATION : './Instaread.BestSellingScrapper.API'
+  PROJECT_PATH         : './Instaread.BestSellingScrapper.API/Instaread.BestSellingScrapper.API.csproj'
+  HOST_VOLUME_PATH     : '/docker_volumes/rahul.twileloop.com'
   DOCKER_ENVS: > 
     Major__Urls__Url=${{ secrets.MAJOR_URL }}
     Major__APIKey=${{ secrets.APIKEY }}
@@ -131,8 +131,8 @@ jobs:
             # Load the Docker image from the tar file
             docker load < /tmp/${{ env.IMAGE_NAME }}.tar.gz
             # Run the Docker image with the specified port and volume mappings
-            docker run -d --env-file ${{ env.HOST_VOLUME_PATH }}/prod.env -p ${{ env.SERVER_PORT }}:${{ env.CONTAINER_PORT }} -v /docker_volumes/${{ env.IMAGE_NAME }}:/app/publish --name ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}
-      
+            docker run -d --env-file "${{ env.HOST_VOLUME_PATH }}/prod.env" -p "${{ env.SERVER_PORT }}:${{ env.CONTAINER_PORT }}" -v "/docker_volumes/${{ env.IMAGE_NAME }}:/app/Shared" --name "${{ env.IMAGE_NAME }}" --cpus 0.5 -u $(id -u):$(id -g) "${{ env.IMAGE_NAME }}"
+
       - name: Configure NGINX
         uses: appleboy/ssh-action@master
         with:
