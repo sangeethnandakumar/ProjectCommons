@@ -7,7 +7,8 @@ Contains common setup and files to enable fast prototyping of complex applicatio
 
 File | Title | Description
 --- | --- | ---
-<a href='commons/OpenTelemetry.md'>Open Telemetry</a> | Observability | OPen telemetry integration with Promethieus
+<a href='commons/OpenTelemetry.md'>Open Telemetry</a> | Observability | Open telemetry integration with Promethieus
+<a href='commons/SharpCompress.md'>ZIP Compression/Decompression</a> | Zipping | Using SharpLib to compress and uncompress preserving folder structure
 <a href='commons/GitIgnore.md'>GitIgnore</a> | Standard GitIgnore | With appsettings.Development.json ignored for secret keeping best practice
 <a href='commons/DockerYML.md'>DockerYML</a> | Docker Build Deploy & Run | Ready to use YML for GitHub actions to enable docker build, deploy and run on server
 <a href='commons/ApiJs.md'>Api.js</a> | API Call Helper | Api.js is a plug and play API helper built using Axios in reveiling module pattern into React apps
