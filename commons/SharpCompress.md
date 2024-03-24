@@ -1,6 +1,30 @@
-# Decompress a ZIP file into temp folder using `SharpCompress`
+# SharpCompress Based MultiFormat Compression/Decompression
 
-## Decompression
+## Usage
+
+```csharp
+// Compress a directory to a ZIP file using the file extension
+string inputDirectory = @"C:\Source\Folder";
+string outputFilePath = @"C:\Compressed.zip";
+ZipHelper.Compress(inputDirectory, outputFilePath);
+
+// Compress a directory to a RAR file specifying the compression format
+string inputDirectory = @"C:\Source\Folder";
+string outputFilePath = @"C:\Compressed.rar";
+ZipHelper.Compress(inputDirectory, outputFilePath, ZipHelper.CompressionFormat.Rar);
+
+// Decompress a GZip file using the file extension
+string inputFilePath = @"C:\Compressed.gz";
+string outputDirectory = @"C:\Destination\Folder";
+ZipHelper.Decompress(inputFilePath, outputDirectory);
+
+// Decompress a TAR file specifying the compression format
+string inputFilePath = @"C:\Compressed.tar";
+string outputDirectory = @"C:\Destination\Folder";
+ZipHelper.Decompress(inputFilePath, outputDirectory, ZipHelper.CompressionFormat.Tar);
+```
+
+## Helper Class
 
 ```csharp
 using System;
@@ -116,28 +140,4 @@ public static class ZipHelper
         };
     }
 }
-```
-
-## Usage
-
-```csharp
-// Compress a directory to a ZIP file using the file extension
-string inputDirectory = @"C:\Source\Folder";
-string outputFilePath = @"C:\Compressed.zip";
-ZipHelper.Compress(inputDirectory, outputFilePath);
-
-// Compress a directory to a RAR file specifying the compression format
-string inputDirectory = @"C:\Source\Folder";
-string outputFilePath = @"C:\Compressed.rar";
-ZipHelper.Compress(inputDirectory, outputFilePath, ZipHelper.CompressionFormat.Rar);
-
-// Decompress a GZip file using the file extension
-string inputFilePath = @"C:\Compressed.gz";
-string outputDirectory = @"C:\Destination\Folder";
-ZipHelper.Decompress(inputFilePath, outputDirectory);
-
-// Decompress a TAR file specifying the compression format
-string inputFilePath = @"C:\Compressed.tar";
-string outputDirectory = @"C:\Destination\Folder";
-ZipHelper.Decompress(inputFilePath, outputDirectory, ZipHelper.CompressionFormat.Tar);
 ```
