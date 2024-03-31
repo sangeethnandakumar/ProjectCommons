@@ -3,76 +3,108 @@
 ```js
 import axios from 'axios';
 
-const baseURL = 'https://example.com';
-const scopes = [
-    'openid',
-    'offline_access',
-    'profile',
-    'email',
-    'https://xxxx.onmicrosoft.com/xxxxxxxxxxxxx/Files.Read'
-];
+const baseURL = 'http://localhost:5093';
+const scopes = [];
 
-const Api = (function () {
-    const axiosInstance = axios.create({
-        baseURL: baseURL,
-    });
+const axiosInstance = axios.create({
+    baseURL: baseURL,
+});
 
-    const tryRelogin = (msalInstance) => {
+const tryRelogin = msalInstance => {
+    if (!msalInstance) return;
+    msalInstance.logoutPopup();
+    setTimeout(() => msalInstance.loginPopup(), 2000);
+}
+
+const fetchMSALToken = async msalInstance => {
+    if (!msalInstance) return null;
+    try {
+        const token = await msalInstance.acquireTokenSilent({
+            scopes: scopes,
+        });
+        return token ? token.accessToken : null;
+    } catch (error) {
         if (msalInstance) {
-            msalInstance.logoutPopup();
-            setTimeout(() => msalInstance.loginPopup(), 2000);
-        }
-    }
-
-    const fetchToken = async (msalInstance) => {
-        if (!msalInstance) return null;
-
-        try {
-            const token = await msalInstance.acquireTokenSilent({
-                scopes: scopes,
-            });
-            return token.accessToken;
-        } catch (error) {
-            if (msalInstance) {
-                tryRelogin(msalInstance);
-            }
-        }
-    }
-
-    const handleResponse = (response, onSuccess, onFailure, msalInstance) => {
-        if (response.status === 200) {
-            onSuccess(response.data);
-        } else if (response.status === 401 && msalInstance) {
             tryRelogin(msalInstance);
-        } else {
-            onFailure(response);
         }
+        throw error;
     }
+}
 
-    const makeRequest = async (method, url, data, isFormData, onSuccess, onFailure, msalInstance) => {
-        try {
-            const token = await fetchToken(msalInstance);
-            const headers = isFormData ? { 'Content-Type': 'multipart/form-data' } : {};
+const fetchLocalToken = () => window.localStorage.getItem('token');
 
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
+const handleResponse = (response, callbacks) => {
+    if (!response || !callbacks) {
+        window.location.href = "/login";
+    }
+    const { onSuccess, onError, onBadRequest, onForbid, onUnauthorized } = callbacks;
 
-            const response = await method(url, data, { headers });
-            handleResponse(response, onSuccess, onFailure, msalInstance);
-        } catch (error) {
-            onFailure(error);
+    if (response.status === 200 && onSuccess) {
+        onSuccess(response.data);
+    } else if (response.status === 400 && onBadRequest) {
+        onBadRequest(response.data);
+    } else if (response.status === 401) {
+        onUnauthorized && onUnauthorized(response.data);
+    } else if (response.status === 403 && onForbid) {
+        onForbid(response.data);
+    } else if (onError) {
+        onError(response.data);
+    }
+}
+
+const axiosRequest = async (method, url, headers, data = null, params = null) => {
+    try {
+        let response;
+        switch (method) {
+            case 'GET':
+                response = await axiosInstance.get(url, { headers, params });
+                break;
+            case 'POST':
+                response = await axiosInstance.post(url, data, { headers });
+                break;
+            case 'PUT':
+                response = await axiosInstance.put(url, data, { headers });
+                break;
+            case 'PATCH':
+                response = await axiosInstance.patch(url, data, { headers });
+                break;
+            case 'DELETE':
+                response = await axiosInstance.delete(url, { headers, params });
+                break;
+            default:
+                throw new Error(`Unsupported method: ${method}`);
         }
+        return response;
+    } catch (error) {
+        console.error(error);
+        return error.response;
     }
+}
 
-    return {
-        GET: (url, params, onSuccess, onFailure, msalInstance) => makeRequest(axiosInstance.get, url, { params }, false, onSuccess, onFailure, msalInstance),
-        POST: (url, data, isFormData, onSuccess, onFailure, msalInstance) => makeRequest(axiosInstance.post, url, data, isFormData, onSuccess, onFailure, msalInstance),
-        PUT: (url, data, isFormData, onSuccess, onFailure, msalInstance) => makeRequest(axiosInstance.put, url, data, isFormData, onSuccess, onFailure, msalInstance),
-        PATCH: (url, data, isFormData, onSuccess, onFailure, msalInstance) => makeRequest(axiosInstance.patch, url, data, isFormData, onSuccess, onFailure, msalInstance),
-        DELETE: (url, onSuccess, onFailure, msalInstance) => makeRequest(axiosInstance.delete, url, null, false, onSuccess, onFailure, msalInstance),
-    };
-})();
+const makeRequest = async (method, url, data, callbacks, msalInstance = null) => {
+    try {
+        const token = msalInstance ? await fetchMSALToken(msalInstance) : fetchLocalToken();
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        };
+
+        const response = await axiosRequest(method, url, headers, data);
+
+        handleResponse(response, callbacks);
+    } catch (error) {
+        console.warn(error);
+        handleResponse(error.response, callbacks);
+    }
+}
+
+const Api = {
+    GET: async (url, params, callbacks, msalInstance = null) => await makeRequest('GET', url, params, callbacks, msalInstance),
+    POST: async (url, data, callbacks, msalInstance = null) => await makeRequest('POST', url, data, callbacks, msalInstance),
+    PUT: async (url, data, callbacks, msalInstance = null) => await makeRequest('PUT', url, data, callbacks, msalInstance),
+    PATCH: async (url, data, callbacks, msalInstance = null) => await makeRequest('PATCH', url, data, callbacks, msalInstance),
+    DELETE: async (url, callbacks, msalInstance = null) => await makeRequest('DELETE', url, null, callbacks, msalInstance),
+};
 
 export default Api;
 ```
@@ -97,81 +129,128 @@ const { instance } = useMsal();
 
 const App = () => {
 
-	//GET
-	const retrieveData = () => {
-		Api.GET('Subscriptions/GetData',
-			{ param1: 'value1', param2: 'value2' },
-			data => {
-				alert(JSON.stringify(data));
-			},
-			err => {
-				alert('failure');
-			},
-			instance);
-	}
+	// Example GET request
+Api.GET(
+  '/api/data', 
+  null, 
+  {
+    onSuccess: (data) => {
+      console.log('GET request successful:', data);
+    },
+    onError: (error) => {
+      console.error('Error in GET request:', error);
+    },
+    onBadRequest: (data) => {
+      console.error('Bad request in GET:', data);
+    },
+    onUnauthorized: (data) => {
+      console.error('Unauthorized in GET:', data);
+    },
+    onForbid: (data) => {
+      console.error('Forbidden in GET:', data);
+    }
+  },
+  msalInstance // Optional
+);
 
-	//POST
-	const postData = () => {
-		Api.POST('Subscriptions/SubmitData',
-			{
-				Field1: 'Value1',
-				Field2: 'Value2'
-			},
-			false, // Use form data
-			data => {
-				alert(JSON.stringify(data));
-			},
-			err => {
-				alert('failure');
-			},
-			instance);
-	}
+// Example POST request
+const postData = { username: 'example', password: 'password123' };
+Api.POST(
+  '/api/create', 
+  postData, 
+  {
+    onSuccess: (data) => {
+      console.log('POST request successful:', data);
+    },
+    onError: (error) => {
+      console.error('Error in POST request:', error);
+    },
+    onBadRequest: (data) => {
+      console.error('Bad request in POST:', data);
+    },
+    onUnauthorized: (data) => {
+      console.error('Unauthorized in POST:', data);
+    },
+    onForbid: (data) => {
+      console.error('Forbidden in POST:', data);
+    }
+  },
+  msalInstance // Optional
+);
 
-	//PUT
-	const updateData = () => {
-		Api.PUT('Subscriptions/UpdateData',
-			{
-				Field1: 'UpdatedValue1',
-				Field2: 'UpdatedValue2'
-			},
-			false, // Use JSON data
-			data => {
-				alert(JSON.stringify(data));
-			},
-			err => {
-				alert('failure');
-			},
-			instance);
-	}
+// Example PUT request
+const putData = { id: 123, name: 'Updated Name' };
+Api.PUT(
+  '/api/update', 
+  putData, 
+  {
+    onSuccess: (data) => {
+      console.log('PUT request successful:', data);
+    },
+    onError: (error) => {
+      console.error('Error in PUT request:', error);
+    },
+    onBadRequest: (data) => {
+      console.error('Bad request in PUT:', data);
+    },
+    onUnauthorized: (data) => {
+      console.error('Unauthorized in PUT:', data);
+    },
+    onForbid: (data) => {
+      console.error('Forbidden in PUT:', data);
+    }
+  },
+  msalInstance // Optional
+);
 
-	//PATCH
-	const patchData = () => {
-		Api.PATCH('Subscriptions/PatchData',
-			{
-				Field1: 'PatchedValue1',
-				Field2: 'PatchedValue2'
-			},
-			false, // Use JSON data
-			data => {
-				alert(JSON.stringify(data));
-			},
-			err => {
-				alert('failure');
-			},
-			instance);
-	}
+// Example PATCH request
+const patchData = { id: 456, status: 'completed' };
+Api.PATCH(
+  '/api/modify', 
+  patchData, 
+  {
+    onSuccess: (data) => {
+      console.log('PATCH request successful:', data);
+    },
+    onError: (error) => {
+      console.error('Error in PATCH request:', error);
+    },
+    onBadRequest: (data) => {
+      console.error('Bad request in PATCH:', data);
+    },
+    onUnauthorized: (data) => {
+      console.error('Unauthorized in PATCH:', data);
+    },
+    onForbid: (data) => {
+      console.error('Forbidden in PATCH:', data);
+    }
+  },
+  msalInstance // Optional
+);
 
-	//DELETE
-	const deleteData = () => {
-		Api.DELETE('Subscriptions/DeleteData',
-			data => {
-				alert('Data deleted successfully');
-			},
-			err => {
-				alert('failure');
-			},
-			instance);
-	}
+// Example DELETE request
+Api.DELETE(
+  '/api/delete/123', 
+  {
+    onSuccess: (data) => {
+      console.log('DELETE request successful:', data);
+    },
+    onError: (error) => {
+      console.error('Error in DELETE request:', error);
+    },
+    onBadRequest: (data) => {
+      console.error('Bad request in DELETE:', data);
+    },
+    onUnauthorized: (data) => {
+      console.error('Unauthorized in DELETE:', data);
+    },
+    onForbid: (data) => {
+      console.error('Forbidden in DELETE:', data);
+    }
+  },
+  msalInstance // Optional
+);
+
 
     return (
         <>
