@@ -1,9 +1,31 @@
+# For File Uploads
+```
+ [HttpPost("upload")]
+ public async Task<IActionResult> Post([FromForm] IFormFileCollection files)
+ {
+     foreach (var file in files)
+     {
+         var filename = file.FileName;
+         var filesize = file.Length;
+         var extension = Path.GetExtension(filename);
+
+         using (var ms = new MemoryStream())
+         {
+             await file.CopyToAsync(ms);
+             var fileBytes = ms.ToArray();
+             System.IO.File.WriteAllBytes("PathToSaveFile", fileBytes);
+         }
+     }
+     return Ok(true);
+ }
+```
+
 # Api.js
 
 ```js
 import axios from 'axios';
 
-const baseURL = 'http://localhost:5093';
+const baseURL = 'https://localhost:49155';
 const scopes = [];
 
 const axiosInstance = axios.create({
@@ -98,12 +120,44 @@ const makeRequest = async (method, url, data, callbacks, msalInstance = null) =>
     }
 }
 
+const uploadFile = async (url, file, callbacks, msalInstance = null) => {
+    try {
+        const token = msalInstance ? await fetchMSALToken(msalInstance) : fetchLocalToken();
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+        };
+
+        const formData = new FormData();
+        formData.append('files', file);
+
+        const config = {
+            headers: { ...headers, 'Content-Type': 'multipart/form-data' },
+            onUploadProgress: (progressEvent) => {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                callbacks.onUpload && callbacks.onUpload(percentCompleted);
+            },
+        };
+
+        const response = await axiosInstance.post(url, formData, config);
+
+        if (response.status === 200) {
+            callbacks.onSuccessfulUpload && callbacks.onSuccessfulUpload(response.data);
+        } else {
+            callbacks.onUploadFailure && callbacks.onUploadFailure(response.data);
+        }
+    } catch (error) {
+        console.warn(error);
+        callbacks.onUploadFailure && callbacks.onUploadFailure(error.response.data);
+    }
+};
+
 const Api = {
     GET: async (url, params, callbacks, msalInstance = null) => await makeRequest('GET', url, params, callbacks, msalInstance),
     POST: async (url, data, callbacks, msalInstance = null) => await makeRequest('POST', url, data, callbacks, msalInstance),
     PUT: async (url, data, callbacks, msalInstance = null) => await makeRequest('PUT', url, data, callbacks, msalInstance),
     PATCH: async (url, data, callbacks, msalInstance = null) => await makeRequest('PATCH', url, data, callbacks, msalInstance),
     DELETE: async (url, callbacks, msalInstance = null) => await makeRequest('DELETE', url, null, callbacks, msalInstance),
+    UPLOAD: async (url, file, callbacks, msalInstance = null) => await uploadFile(url, file, callbacks, msalInstance),
 };
 
 export default Api;
@@ -120,6 +174,32 @@ export default Api;
 
 > If you didn't pass `msalInstance`, Api.js assumes authorization is not required for that endpoint and never try token accusation
 
+### File Uploads
+```
+const onFileChange = (event) => {
+    const file = event.target.files[0];
+    Api.UPLOAD(
+        '/Ebooks/upload',
+        file,
+        {
+            onUpload: (progress) => {
+                console.log(`Upload progress: ${progress}%`);
+            },
+            onSuccessfulUpload: (data) => {
+                console.log('File upload successful:', data);
+            },
+            onUploadFailure: (error) => {
+                console.error('File upload failed:', error);
+            },
+        },
+        null
+    );
+};
+
+<input type="file" className="form-control" onChange={onFileChange} />
+```
+
+### Regular calls
 ```js
 import Api from '../libs/api';
 import { useMsal } from '@azure/msal-react';
@@ -177,80 +257,6 @@ Api.POST(
   },
   msalInstance // Optional
 );
-
-// Example PUT request
-const putData = { id: 123, name: 'Updated Name' };
-Api.PUT(
-  '/api/update', 
-  putData, 
-  {
-    onSuccess: (data) => {
-      console.log('PUT request successful:', data);
-    },
-    onError: (error) => {
-      console.error('Error in PUT request:', error);
-    },
-    onBadRequest: (data) => {
-      console.error('Bad request in PUT:', data);
-    },
-    onUnauthorized: (data) => {
-      console.error('Unauthorized in PUT:', data);
-    },
-    onForbid: (data) => {
-      console.error('Forbidden in PUT:', data);
-    }
-  },
-  msalInstance // Optional
-);
-
-// Example PATCH request
-const patchData = { id: 456, status: 'completed' };
-Api.PATCH(
-  '/api/modify', 
-  patchData, 
-  {
-    onSuccess: (data) => {
-      console.log('PATCH request successful:', data);
-    },
-    onError: (error) => {
-      console.error('Error in PATCH request:', error);
-    },
-    onBadRequest: (data) => {
-      console.error('Bad request in PATCH:', data);
-    },
-    onUnauthorized: (data) => {
-      console.error('Unauthorized in PATCH:', data);
-    },
-    onForbid: (data) => {
-      console.error('Forbidden in PATCH:', data);
-    }
-  },
-  msalInstance // Optional
-);
-
-// Example DELETE request
-Api.DELETE(
-  '/api/delete/123', 
-  {
-    onSuccess: (data) => {
-      console.log('DELETE request successful:', data);
-    },
-    onError: (error) => {
-      console.error('Error in DELETE request:', error);
-    },
-    onBadRequest: (data) => {
-      console.error('Bad request in DELETE:', data);
-    },
-    onUnauthorized: (data) => {
-      console.error('Unauthorized in DELETE:', data);
-    },
-    onForbid: (data) => {
-      console.error('Forbidden in DELETE:', data);
-    }
-  },
-  msalInstance // Optional
-);
-
 
     return (
         <>
