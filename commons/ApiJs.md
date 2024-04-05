@@ -1,5 +1,5 @@
 # For File Uploads
-```
+```csharp
  [HttpPost("upload")]
  public async Task<IActionResult> Post([FromForm] IFormFileCollection files)
  {
