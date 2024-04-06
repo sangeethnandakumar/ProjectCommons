@@ -1,3 +1,19 @@
+## Setup The DockerFile.prod
+This is creates a Shared folder as well for volume mounting
+```
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+EXPOSE 8080
+FROM base AS final
+WORKDIR /app
+
+COPY ../../publish/ .
+RUN mkdir -p Shared
+
+ENTRYPOINT ["dotnet", "Instaread.EpubAi.Server.dll"]
+```
+
+
+
 # YML - Docker Build + Deploy + Run
 ```yml
 name: Build & Deploy Docker Container
