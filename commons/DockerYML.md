@@ -1,6 +1,6 @@
 ## Setup The DockerFile.prod
 This is creates a Shared folder as well for volume mounting
-```
+```dockerfile
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 EXPOSE 8080
 FROM base AS final
@@ -12,7 +12,43 @@ RUN mkdir -p Shared
 ENTRYPOINT ["dotnet", "Instaread.EpubAi.Server.dll"]
 ```
 
+## Sub-Shared Folders + Static Assets
+If you need to create multiple sub folders inside Shared folder, It's a good idea to do it on app start
+```csharp
+CreateSharedDirectories();
+if(!app.Environment.IsDevelopment())
+{
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot")),
+        RequestPath = "",
+        ServeUnknownFileTypes = true,
+    });
+}
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Shared", "Ebooks")),
+    RequestPath = "/preview",
+    ServeUnknownFileTypes = true,
+    DefaultContentType = "application/epub+zip",
+});
 
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+app.MapFallbackToFile("/index.html");
+
+app.Run();
+
+static void CreateSharedDirectories()
+{
+    var staticAssetLocation = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Shared", "Ebooks");
+    if (!Directory.Exists(staticAssetLocation))
+    {
+        Directory.CreateDirectory(staticAssetLocation);
+    }
+}
+```
 
 # YML - Docker Build + Deploy + Run
 ```yml
@@ -26,17 +62,15 @@ on:
 
 env:
   # Docker Config  
-  IMAGE_NAME           : 'rahul.twileloop.com'
-  NGINX_DOMAIN         : 'rahul.twileloop.com'
-  SERVER_PORT          : 5002
-  DOCKER_FILE_LOCATION : './Instaread.BestSellingScrapper.API'
-  PROJECT_PATH         : './Instaread.BestSellingScrapper.API/Instaread.BestSellingScrapper.API.csproj'
-  HOST_VOLUME_PATH     : '/docker_volumes/rahul.twileloop.com'
+  IMAGE_NAME           : 'epubai.twileloop.com'
+  NGINX_DOMAIN         : 'epubai.twileloop.com'
+  SERVER_PORT          : 5004
+  DOCKER_FILE_LOCATION : './Instaread.EpubAi.Server' 
+  PROJECT_PATH         : './Instaread.EpubAi.Server/Instaread.EpubAi.Server.csproj'
+  HOST_VOLUME_PATH     : '/docker_volumes/epubai.twileloop.com'
   DOCKER_ENVS: > 
-    Major__Urls__Url=${{ secrets.MAJOR_URL }}
-    Major__APIKey=${{ secrets.APIKEY }}
-    Major__ConnectionStrings__SQLServer=${{ secrets.CONNSTR }}
-
+    APIKeys_Gemini=${{ secrets.APIKEY_GEMINI }}
+    APIKeys_MidJourney=${{ secrets.APIKEY_MIDJOURNEY }}
    
   # Dotnet Config
   DOTNET_VERSION       : '8.0.101'
@@ -87,13 +121,13 @@ jobs:
         uses: actions/cache@v3
         with:
           path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ hashFiles('**/Dockerfile') }}
+          key: ${{ runner.os }}-buildx-${{ hashFiles('**/Dockerfile.prod') }}
           restore-keys: |
             ${{ runner.os }}-buildx-
 
       - name: Build Docker Image
-        run: docker build --cache-from=type=local,src=/tmp/.buildx-cache --build-arg BUILDKIT_INLINE_CACHE=1 -t ${{ env.IMAGE_NAME }} ${{ env.DOCKER_FILE_LOCATION }}
-
+        run: docker build --cache-from=type=local,src=/tmp/.buildx-cache --build-arg BUILDKIT_INLINE_CACHE=1 -f ${{ env.DOCKER_FILE_LOCATION }}/Dockerfile.prod -t ${{ env.IMAGE_NAME }} .
+      
       - name: Save Docker Image
         run: docker save ${{ env.IMAGE_NAME }} | gzip > ${{ env.IMAGE_NAME }}.tar.gz
 
@@ -229,30 +263,4 @@ jobs:
           username: ${{ env.SERVER_USERNAME }}
           key: ${{ env.SERVER_SSH }}
           script: sudo systemctl start nginx
-```
-
-### Docker File Expectation
-```dockerfile
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-USER app
-WORKDIR /app
-EXPOSE 8080
-
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-ARG BUILD_CONFIGURATION=Release
-WORKDIR /src
-COPY ["Api.csproj", "./"]
-RUN dotnet restore "./Api.csproj"
-COPY . .
-RUN dotnet build "./Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
-
-FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
-
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-
-ENTRYPOINT ["dotnet", "Api.dll"]
 ```
