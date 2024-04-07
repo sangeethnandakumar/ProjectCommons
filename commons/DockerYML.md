@@ -124,7 +124,6 @@ jobs:
           key: ${{ runner.os }}-buildx-${{ hashFiles('**/Dockerfile.prod') }}
           restore-keys: |
             ${{ runner.os }}-buildx-
-
       - name: Build Docker Image
         run: docker build --cache-from=type=local,src=/tmp/.buildx-cache --build-arg BUILDKIT_INLINE_CACHE=1 -f ${{ env.DOCKER_FILE_LOCATION }}/Dockerfile.prod -t ${{ env.IMAGE_NAME }} .
       
@@ -159,7 +158,6 @@ jobs:
             do
               echo $line >> ${{ env.HOST_VOLUME_PATH }}/prod.env
             done
-
       - name: Load and Run Docker Image on VM
         uses: appleboy/ssh-action@master
         with:
@@ -182,7 +180,6 @@ jobs:
             docker load < /tmp/${{ env.IMAGE_NAME }}.tar.gz
             # Run the Docker image with the specified port and volume mappings
             docker run -d --env-file "${{ env.HOST_VOLUME_PATH }}/prod.env" -p "${{ env.SERVER_PORT }}:${{ env.CONTAINER_PORT }}" -v "/docker_volumes/${{ env.IMAGE_NAME }}:/app/Shared" --name "${{ env.IMAGE_NAME }}" --cpus 0.5 -u $(id -u):$(id -g) "${{ env.IMAGE_NAME }}"
-
       - name: Configure NGINX
         uses: appleboy/ssh-action@master
         with:
@@ -193,7 +190,6 @@ jobs:
             # Check if the NGINX config has changed
             local_config_hash=$(sha256sum /etc/nginx/sites-enabled/${{ env.NGINX_DOMAIN }} 2>/dev/null || true)
             remote_config_hash=$(ssh {{ env.SERVER_USERNAME }}@${{ env.SERVER_HOST }} "sha256sum /etc/nginx/sites-enabled/${{ env.NGINX_DOMAIN }}" 2>/dev/null || true)
-
             if [ "$local_config_hash" != "$remote_config_hash" ]; then
               # If the config has changed, create the NGINX config
               cat << EOF > /etc/nginx/sites-enabled/${{ env.NGINX_DOMAIN }}
@@ -206,6 +202,8 @@ jobs:
               server {
                   listen 443 ssl http2;
                   server_name ${{ env.NGINX_DOMAIN }};
+
+                  client_max_body_size 200M;
       
                   location / {
                       proxy_pass http://localhost:${{ env.SERVER_PORT }};
@@ -263,5 +261,4 @@ jobs:
           username: ${{ env.SERVER_USERNAME }}
           key: ${{ env.SERVER_SSH }}
           script: sudo systemctl start nginx
-
 ```
