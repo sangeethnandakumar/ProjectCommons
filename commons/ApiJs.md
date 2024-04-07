@@ -1,31 +1,9 @@
-# For File Uploads
-```csharp
- [HttpPost("upload")]
- public async Task<IActionResult> Post([FromForm] IFormFileCollection files)
- {
-     foreach (var file in files)
-     {
-         var filename = file.FileName;
-         var filesize = file.Length;
-         var extension = Path.GetExtension(filename);
-
-         using (var ms = new MemoryStream())
-         {
-             await file.CopyToAsync(ms);
-             var fileBytes = ms.ToArray();
-             System.IO.File.WriteAllBytes("PathToSaveFile", fileBytes);
-         }
-     }
-     return Ok(true);
- }
-```
-
 # Api.js
-
+Use APi.js for immediate implementation of REST API support
 ```js
 import axios from 'axios';
 
-const baseURL = 'https://localhost:49155';
+const baseURL = import.meta.env.VITE_APP_API_URL;
 const scopes = [];
 
 const axiosInstance = axios.create({
@@ -56,9 +34,6 @@ const fetchMSALToken = async msalInstance => {
 const fetchLocalToken = () => window.localStorage.getItem('token');
 
 const handleResponse = (response, callbacks) => {
-    if (!response || !callbacks) {
-        window.location.href = "/login";
-    }
     const { onSuccess, onError, onBadRequest, onForbid, onUnauthorized } = callbacks;
 
     if (response.status === 200 && onSuccess) {
@@ -163,43 +138,9 @@ const Api = {
 export default Api;
 ```
 
-### Usage
+### For Upload example see 'UploadDownload.md' file
 
-- Install Axios (`npm i axios`)
-- Replace `baseURL` below
-- Replace `scopes` below
-- Ready to use
-
-> Based on `bool` value we pass in `isFormData`, Api.js will either put data as Key-Value FormData or as Raw JSON body
-
-> If you didn't pass `msalInstance`, Api.js assumes authorization is not required for that endpoint and never try token accusation
-
-### File Uploads
-```
-const onFileChange = (event) => {
-    const file = event.target.files[0];
-    Api.UPLOAD(
-        '/Ebooks/upload',
-        file,
-        {
-            onUpload: (progress) => {
-                console.log(`Upload progress: ${progress}%`);
-            },
-            onSuccessfulUpload: (data) => {
-                console.log('File upload successful:', data);
-            },
-            onUploadFailure: (error) => {
-                console.error('File upload failed:', error);
-            },
-        },
-        null
-    );
-};
-
-<input type="file" className="form-control" onChange={onFileChange} />
-```
-
-### Regular calls
+### Example API calls
 ```js
 import Api from '../libs/api';
 import { useMsal } from '@azure/msal-react';
@@ -209,7 +150,7 @@ const { instance } = useMsal();
 
 const App = () => {
 
-	// Example GET request
+// Example GET request
 Api.GET(
   '/api/data', 
   null, 
