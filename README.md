@@ -7,6 +7,7 @@ Contains common setup and files to enable fast prototyping of complex applicatio
 
 File | Title | Description
 --- | --- | ---
+<a href='commons/Router.md'>React Router Implementation</a> | React Router | Using React router for implementation
 <a href='commons/Tabler.md'>Tabler Usage</a> | Tabler CDN setup | For using Tabler in React, Just follow this
 <a href='commons/OpenTelemetry.md'>Open Telemetry</a> | Observability | Open telemetry integration with Promethieus
 <a href='commons/SharpCompress.md'>ZIP Compression/Decompression</a> | Zipping | Using SharpLib to compress and uncompress preserving folder structure
