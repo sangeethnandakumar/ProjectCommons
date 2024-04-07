@@ -40,8 +40,7 @@ sudo apt install docker-ce docker-ce-cli containerd.io
 docker run -d --name=prometheus -p 9090:9090 -u 0:0 -v /docker_volumes/prometheus:/opt/bitnami/prometheus/data bitnami/prometheus
 ```
 
-
-### Graphana
+### Grafana
 ```powershell
 docker run -d -u 0:0 --name=grafana -p 3000:3000 -e "GF_SECURITY_ADMIN_USER=root" -e "GF_SECURITY_ADMIN_PASSWORD=*****" -v /docker_volumes/grafana:/var/lib/grafana grafana/grafana
 ```
