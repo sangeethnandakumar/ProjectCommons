@@ -20,11 +20,7 @@ Use as follows in HTML or Js files `import.meta.env.VITE_APP_API_URL`
      <div className="col-12">
          <div className="card">
              <div className="card-body">
-                 <ReactEpubViewer
-                         url={`${import.meta.env.VITE_APP_API_URL}/preview/${session}.epub`}
-                     onPageChange={onPageChange}
-                     ref={viewerRef}
-                 />
+                 <img src={`${import.meta.env.VITE_APP_API_URL}/myimage.png`}/>
              </div>
          </div>
      </div>
