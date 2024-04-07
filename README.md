@@ -7,6 +7,7 @@ Contains common setup and files to enable fast prototyping of complex applicatio
 
 File | Title | Description
 --- | --- | ---
+<a href='commons/Tabler.md'>Tabler Usage</a> | Tabler CDN setup | For using Tabler in React, Just follow this
 <a href='commons/OpenTelemetry.md'>Open Telemetry</a> | Observability | Open telemetry integration with Promethieus
 <a href='commons/SharpCompress.md'>ZIP Compression/Decompression</a> | Zipping | Using SharpLib to compress and uncompress preserving folder structure
 <a href='commons/GitIgnore.md'>GitIgnore</a> | Standard GitIgnore | With appsettings.Development.json ignored for secret keeping best practice
