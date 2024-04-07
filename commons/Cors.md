@@ -13,7 +13,13 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader();
         });
 });
+.
+.
+.
+.
 app.UseCors("AllowAll");
+
+//Static assets should come below CORS
 ```
 
 ### Specific Domains / IPs
