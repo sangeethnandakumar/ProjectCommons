@@ -12,7 +12,7 @@ RUN mkdir -p Shared
 ENTRYPOINT ["dotnet", "Instaread.EpubAi.Server.dll"]
 ```
 
-## Sub-Shared Folders + Static Assets
+## Shared Folder + Static Assets
 If you need to create multiple sub folders inside Shared folder, It's a good idea to do it on app start
 ```csharp
 CreateSharedDirectories();
@@ -263,4 +263,5 @@ jobs:
           username: ${{ env.SERVER_USERNAME }}
           key: ${{ env.SERVER_SSH }}
           script: sudo systemctl start nginx
+
 ```
