@@ -23,7 +23,7 @@ Upload a file as POST endpoint and process it easiy
 
 # File Downloads
 Download a file as octet stream or any other mime type
-```
+```csharp
     [HttpGet("download/{filename}")]
     public IActionResult Download(string filename)
     {
