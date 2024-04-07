@@ -15,7 +15,7 @@ class Latch {
     //Connects to SignalR server
     initializeConnection() {
         this.connection = new HubConnectionBuilder()
-            .withUrl("https://example.com/signalrhub", { withCredentials: false })
+            .withUrl(`${import.meta.env.VITE_APP_API_URL}/signalrhub`, { withCredentials: false })
             .withAutomaticReconnect()
             .build();
         this.connection.start()
