@@ -3,11 +3,11 @@
 ### Serilog Packages
 ```xml
 <!-- LOGGING -->
-<PackageReference Include="Serilog" Version="3.1.1" />
+<PackageReference Include="Serilog" Version="4.0.0-dev-02149" />
 <PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0" />
-<PackageReference Include="Serilog.Settings.Configuration" Version="8.0.0" />
-<PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />
-<PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
+<PackageReference Include="Serilog.Settings.Configuration" Version="8.0.1-dev-00582" />
+<PackageReference Include="Serilog.Sinks.Console" Version="5.1.0-dev-00943" />
+<PackageReference Include="Serilog.Sinks.File" Version="5.0.1-dev-00972" />
 ```
 
 ### SignalRSink.cs
