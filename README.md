@@ -18,7 +18,8 @@ File | Title | Description
 <a href='commons/UploadDownload.md'>Uploads & Downloads</a> | Upload and Download Endpoints | Setting up endpoints in .NET for uploading and downloading and using Api.js for uploads with progress reporting
 <a href='commons/LatchJs.md'>Latch.js</a> | SignalR Helper | Latch.js is a plug and play setup for integrating SignalR into React apps in a breeze along server config
 <a href='commons/Cors.md'>Cors</a> | CORS Policies | Different CORS policies that can be enforced
-<a href='commons/Serilog.md'>Serilog</a> | Serilog & SignalRSink | Serilog implementation in API along with custom SignalR sink
+<a href='commons/SerilogSeq.md'>Serilog With Seq</a> | Serilog & Seq | Serilog implementation in API along with custom SignalR sink
+<a href='commons/SerilogSignalR.md'>Serilog With SignalR</a> | Serilog & SignalRSink | Serilog implementation in API along with custom SignalR sink
 <a href='commons/Ssl.md'>SSL</a> | Certbot Commands | Common certbot commands for SSL setup on server
 <a href='commons/UserSecrets.md'>UserSecrets</a> | Local Secret Management | Local secret management for new projects
 <a href='commons/Docker.md'>Docker</a> | Docker Commands | Common docker commands
