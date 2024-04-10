@@ -45,6 +45,70 @@ Download a file as octet stream or any other mime type
     }
 ```
 
+# Compressed Image Downloads
+Image compression is controlled by
+ - IMAGE_SIZE_REDUCTION_FACTOR
+ - IMAGE_DPI_REDUCTION_FACTOR
+ - IMAGE_BITDEPTH_REDUCTION_FACTOR
+
+```csharp
+[HttpGet("download/{filename}")]
+public async Task<IActionResult> DownloadAsync(string filename)
+{
+    const int IMAGE_SIZE_REDUCTION_FACTOR = 8;
+    const int IMAGE_DPI_REDUCTION_FACTOR = 4;
+    const PngBitDepth IMAGE_BITDEPTH_REDUCTION_FACTOR = PngBitDepth.Bit4;
+
+    var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DownloadedImages", $"{filename}.png");
+    var mimeType = "image/png";
+
+    if (System.IO.File.Exists(filePath))
+    {
+        // Use FileStream to directly stream the file to the response
+        var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+
+        // Resize the image and save it to the fileStream
+        using (var image = SixLabors.ImageSharp.Image.Load(fileStream))
+        {
+            var originalWidth = image.Width;
+            var originalHeight = image.Height;
+            var newWidth = originalWidth / IMAGE_SIZE_REDUCTION_FACTOR;
+            var newHeight = originalHeight / IMAGE_SIZE_REDUCTION_FACTOR;
+
+            image.Mutate(x => x.Resize(newWidth, newHeight));
+
+            var encoder = new PngEncoder
+            {
+                CompressionLevel = PngCompressionLevel.BestCompression,
+                ColorType = PngColorType.Palette,
+                BitDepth = IMAGE_BITDEPTH_REDUCTION_FACTOR
+            };
+
+            // Reduce the DPI
+            image.Metadata.HorizontalResolution = image.Metadata.HorizontalResolution / IMAGE_DPI_REDUCTION_FACTOR;
+            image.Metadata.VerticalResolution = image.Metadata.VerticalResolution / IMAGE_DPI_REDUCTION_FACTOR;
+
+            // Create a new MemoryStream to store the compressed image
+            using (var outputStream = new MemoryStream())
+            {
+                await image.SaveAsync(outputStream, encoder);
+                outputStream.Seek(0, SeekOrigin.Begin);
+
+                // Return the file as a FileContentResult
+                return new FileContentResult(outputStream.ToArray(), mimeType)
+                {
+                    FileDownloadName = $"{filename}.png"
+                };
+            }
+        }
+    }
+    else
+    {
+        return NotFound();
+    }
+}
+```
+
 ## Api.js Uploading With Progress
 Using Api.js to upload with Axios and reporting progress
 ```jsx
