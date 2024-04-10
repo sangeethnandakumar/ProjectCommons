@@ -45,13 +45,17 @@ Download a file as octet stream or any other mime type
     }
 ```
 
-# Compressed Image Downloads
+# Compressed Image Downloading/Streaming
 Image compression is controlled by
  - IMAGE_SIZE_REDUCTION_FACTOR
  - IMAGE_DPI_REDUCTION_FACTOR
  - IMAGE_BITDEPTH_REDUCTION_FACTOR
 
+> There are modes below - DOWNLOAD IMAGE or STREAM IMAGE
+
 ```csharp
+//Triggers Image Download
+
 [HttpGet("download/{filename}")]
 public async Task<IActionResult> DownloadAsync(string filename)
 {
@@ -107,6 +111,63 @@ public async Task<IActionResult> DownloadAsync(string filename)
         return NotFound();
     }
 }
+
+//Stream Image Into Browser
+
+ [HttpGet("stream/{filename}")]
+ public async Task<IActionResult> DownloadAsync(string filename)
+ {
+     const int IMAGE_SIZE_REDUCTION_FACTOR = 8;
+     const int IMAGE_DPI_REDUCTION_FACTOR = 4;
+     const PngBitDepth IMAGE_BITDEPTH_REDUCTION_FACTOR = PngBitDepth.Bit4;
+
+     var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DownloadedImages", $"{filename}.png");
+     var mimeType = "image/png";
+
+     if (System.IO.File.Exists(filePath))
+     {
+         // Use FileStream to directly stream the file to the response
+         var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+
+         // Resize the image and save it to the fileStream
+         using (var image = SixLabors.ImageSharp.Image.Load(fileStream))
+         {
+             var originalWidth = image.Width;
+             var originalHeight = image.Height;
+             var newWidth = originalWidth / IMAGE_SIZE_REDUCTION_FACTOR;
+             var newHeight = originalHeight / IMAGE_SIZE_REDUCTION_FACTOR;
+
+             image.Mutate(x => x.Resize(newWidth, newHeight));
+
+             var encoder = new PngEncoder
+             {
+                 CompressionLevel = PngCompressionLevel.BestCompression,
+                 ColorType = PngColorType.Palette,
+                 BitDepth = IMAGE_BITDEPTH_REDUCTION_FACTOR
+             };
+
+             // Reduce the DPI
+             image.Metadata.HorizontalResolution = image.Metadata.HorizontalResolution / IMAGE_DPI_REDUCTION_FACTOR;
+             image.Metadata.VerticalResolution = image.Metadata.VerticalResolution / IMAGE_DPI_REDUCTION_FACTOR;
+
+             // Create a new MemoryStream to store the compressed image
+             byte[] imageBytes;
+             using (var outputStream = new MemoryStream())
+             {
+                 await image.SaveAsync(outputStream, encoder);
+                 imageBytes = outputStream.ToArray();
+             }
+
+             // Return the file as a FileStreamResult to display in the browser
+             var resultStream = new MemoryStream(imageBytes);
+             return new FileStreamResult(resultStream, mimeType);
+         }
+     }
+     else
+     {
+         return NotFound();
+     }
+ }
 ```
 
 ## Api.js Uploading With Progress
