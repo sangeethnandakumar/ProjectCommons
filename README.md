@@ -7,6 +7,7 @@ Contains common setup and files to enable fast prototyping of complex applicatio
 
 File | Title | Description
 --- | --- | ---
+<a href='commons/LaunchSettings.md'>LaunchSettings.json For Docker</a> | .NET Launch Settings Router | Use port 5000 and 5001 always
 <a href='commons/Router.md'>React Router</a> | React Router | Using React router for implementation
 <a href='commons/Tabler.md'>Tabler Usage</a> | Tabler CDN setup | For using Tabler in React, Just follow this
 <a href='commons/OpenTelemetry.md'>Open Telemetry</a> | Observability | Open telemetry integration with Promethieus
