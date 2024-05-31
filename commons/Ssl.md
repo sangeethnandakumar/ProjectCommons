@@ -12,7 +12,14 @@ sudo certbot renew --cert-name example.com --force-renewal
 
 ### Auto Renew All Expired Certificates
 ```powershell
+//Stop NGINX
+sudo systemctl stop nginx
+
+//Renew All Certificates
 sudo certbot renew
+
+//Restart NGINX
+sudo systemctl start nginx
 ```
 
 ### Verify
