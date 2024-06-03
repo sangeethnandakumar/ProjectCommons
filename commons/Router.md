@@ -18,7 +18,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 ```
 
 ### Router.jsx
-Add BrowserRouter
+Add different routes
 ```jsx
 import { Route, Routes } from 'react-router-dom';
 import Dashboard from './Dashboard';
