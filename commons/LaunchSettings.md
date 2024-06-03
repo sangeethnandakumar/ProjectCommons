@@ -7,8 +7,8 @@ Binds to port 5000 & 5001 always
    "launchBrowser": true,
    "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}/swagger",
    "environmentVariables": {
-     "ASPNETCORE_HTTPS_PORTS": "8081",
-     "ASPNETCORE_HTTP_PORTS": "8080"
+     "ASPNETCORE_HTTPS_PORTS": "5000",
+     "ASPNETCORE_HTTP_PORTS": "5001"
    },
    "publishAllPorts": true,
    "useSSL": true,
