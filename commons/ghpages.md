@@ -1,13 +1,16 @@
 # React App In GitHub Pages
 
-### Update Package.json with BASE URL
+### Update Vite.config with BASE URL
 
 ```json
-{
-  ...
- "homepage": "https://sangeethnandakumar.github.io/portfolio.github.io",
-  ...
-}
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+    plugins: [react()],
+    base: "/portfolio.github.io/"
+})
+
 ```
 
 ### Static Page Deployments
