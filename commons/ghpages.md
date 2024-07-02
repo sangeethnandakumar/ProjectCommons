@@ -2,7 +2,7 @@
 
 ### Update Vite.config with BASE URL
 
-```json
+```js
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
