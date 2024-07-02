@@ -1,5 +1,15 @@
 # React App In GitHub Pages
 
+### Update Package.json with BASE URL
+
+```json
+{
+  ...
+ "homepage": "https://sangeethnandakumar.github.io/portfolio.github.io",
+  ...
+}
+```
+
 ### Static Page Deployments
 
 ```yml
