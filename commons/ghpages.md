@@ -1,6 +1,6 @@
-#1. Name Project Like 'expencetrackerplayground.github.com'
+# 1. Name Project Like 'expencetrackerplayground.github.com'
 
-#2. Update Vite.config with BASE URL
+# 2. Update Vite.config with BASE URL
 
 ```js
 import { defineConfig } from 'vite'
@@ -12,7 +12,7 @@ export default defineConfig({
 })
 ```
 
-#3. Update Homepage in packages.json
+# 3. Update Homepage in packages.json
 
 ```json
  "homepage": "https://sangeethnandakumar.github.io/expencetrackerplayground.github.com",
@@ -22,7 +22,7 @@ export default defineConfig({
  },
 ```
 
-#4. YML Workflow
+# 4. YML Workflow
 
 ```yml
 name: Deploy to GitHub Pages
