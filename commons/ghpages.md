@@ -1,6 +1,6 @@
-# React App In GitHub Pages
+#1. Name Project Like 'expencetrackerplayground.github.com'
 
-### Update Vite.config with BASE URL
+#2. Update Vite.config with BASE URL
 
 ```js
 import { defineConfig } from 'vite'
@@ -8,12 +8,21 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
     plugins: [react()],
-    base: "/portfolio.github.io/"
+    base: "/expencetrackerplayground.github.co"
 })
-
 ```
 
-### Static Page Deployments
+#3. Update Homepage in packages.json
+
+```json
+ "homepage": "https://sangeethnandakumar.github.io/expencetrackerplayground.github.com",
+ "scripts": {
+   "predeploy": "npm run build",
+   "deploy": "gh-pages -d dist"
+ },
+```
+
+#4. YML Workflow
 
 ```yml
 name: Deploy to GitHub Pages
@@ -25,7 +34,7 @@ on:
   workflow_dispatch:
 
 env:
-  REACT_APP_DIR: 'cleanarchtools'
+  REACT_APP_DIR: 'expencetrackerplayground'
 
 jobs:
   build-and-deploy:
