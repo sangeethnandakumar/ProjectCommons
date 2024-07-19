@@ -1,5 +1,10 @@
 # Docker Commands
 
+## DELETE IMAGE & ASSOCIATED CONTAINERS
+```powershell
+docker ps -a --filter ancestor=4cf503c42b8b -q | xargs -r docker rm -f && docker rmi 4cf503c42b8b
+```
+
 ## COPY/PASTE
 ```powershell
 //Promethieus Config
