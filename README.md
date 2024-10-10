@@ -7,6 +7,7 @@ Contains common setup and files to enable fast prototyping of complex applicatio
 
 File | Title | Description
 --- | --- | ---
+<a href='commons/CustomAuth.md'>Policy Based Authentication & Authorization</a> | Custom Authentication & Authorization | Complete control of authentication and authorization using handlers and requirements
 <a href='commons/ghpages.md'>React + GitHub Pages</a> | Static SPA Deployment | Deploy react app to Github pages
 <a href='commons/CleanArchitecture.md'>Clean Architecture</a> | Clean Architecture | .NET implementation of Clean Architecture with a sample application
 <a href='commons/LaunchSettings.md'>LaunchSettings.json For Docker</a> | .NET Launch Settings Router | Use port 5000 and 5001 always
