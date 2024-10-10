@@ -1,369 +1,269 @@
 ## Solution Structuring
 
-![image](https://github.com/sangeethnandakumar/ProjectCommons/assets/24974154/721f0d12-9a71-44f8-b771-ea5554a87c1f)
+- Create 5 projects
+  - API
+  - Domain
+  - Application
+  - Presentation
+  - Persistance
 
-# A. Domain
+# Dependency Graph
 
-#### Packages
+### API
 ```xml
-  <ItemGroup>
-    <PackageReference Include="LanguageExt.Core" Version="4.4.8" />
-  </ItemGroup>
+	<ItemGroup>
+		<!-- SERILOG LOGGING -->
+		<PackageReference Include="Serilog" Version="4.0.2" />
+		<PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0" />
+		<PackageReference Include="Serilog.Settings.Configuration" Version="8.0.4" />
+		<PackageReference Include="Serilog.Sinks.Async" Version="2.0.0" />
+		<PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+		<PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+		<PackageReference Include="Serilog.Sinks.Seq" Version="8.0.0" />
+		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.5" />
+		<!--CONTAINERISATION-->
+		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.21.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\parinaybharat.api.application\parinaybharat.api.application.csproj" />
+		<ProjectReference Include="..\parinaybharat.api.persistance\parinaybharat.api.persistance.csproj" />
+		<ProjectReference Include="..\parinaybharat.api.presentation\parinaybharat.api.presentation.csproj" />
+	</ItemGroup>
 ```
 
-#### Primitives/Entity.cs
-```csharp
-namespace Domain.Primitives
-{
-    public abstract class Entity
-    {
-        public Guid Id { get; protected set; }
-        public DateTime? CreatedOn { get; protected set; }
-        public DateTime? UpdatedOn { get; protected set; }
-
-        protected Entity()
-        {
-            Id = Guid.NewGuid();
-            CreatedOn = DateTime.UtcNow;
-        }
-
-        protected Entity(Guid id)
-        {
-            Id = id;
-            CreatedOn = DateTime.UtcNow;
-        }
-    }
-}
-```
-
-#### Entities/User.cs
-```csharp
-using Domain.Enums;
-using Domain.Primitives;
-
-namespace Domain.Users
-{
-    public sealed class User : Entity
-    {
-        public User(string firstName, string? lastName, string username, DateTime? dateOfBirth, LoginMethod loginMethod, Gender? gender)
-        {
-            FirstName = firstName;
-            LastName = lastName;
-            Username = username;
-            HashedPassword = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
-            DateOfBirth = dateOfBirth;
-            LoginMethod = loginMethod;
-            Gender = gender;
-        }
-
-        public string FirstName { get; private set; }
-        public string? LastName { get; private set; }
-        public string Username { get; private set; }
-        public string HashedPassword { get; private set; }
-        public DateTime? DateOfBirth { get; private set; }
-        public LoginMethod LoginMethod { get; private set; }
-        public Gender? Gender { get; private set; }
-    }
-}
-```
-
-### Exceptions/Base/LoginException.cs
-```csharp
-namespace Domain.Exceptions.Base
-{
-    public class LoginException : Exception
-    {
-        public LoginException(string message) : base(message)
-        {
-
-        }
-    }
-}
-```
-
-### Exceptions/InvalidLoginException.cs
-```csharp
-using Domain.Exceptions.Base;
-
-namespace Domain.Exceptions
-{
-    public sealed class InvalidLoginException : LoginException
-    {
-        public InvalidLoginException(string username) : base($"Invalid username: {username}")
-        {
-        }
-    }
-}
-```
-
-### Enums/Gender.cs
-```csharp
-namespace Domain.Enums
-{
-    public enum Gender
-    {
-        MALE,
-        FEMALE,
-        OTHERS
-    }
-}
-```
-
-### Abstractions/IUserRepository.cs
-```csharp
-using Domain.Users;
-using LanguageExt.Common;
-
-namespace Domain.Abstractions
-{
-    public interface IUserRepository
-    {
-        Result<Guid> CreateUser(User user);
-        Result<Guid> UpdateUser(User user);
-        Result<Guid> DeleteUser(User user);
-    }
-}
-```
-
-# B. Application
-
-### Packages
+### Application
 ```xml
-  <ItemGroup>
-    <PackageReference Include="MediatR" Version="12.2.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
-  </ItemGroup>
+	<ItemGroup>
+		<!--MAPPING-->
+		<PackageReference Include="AutoMapper" Version="13.0.1" />
+		<!--VALIDATION-->
+		<PackageReference Include="FluentValidation" Version="11.10.0" />
+		<PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.10.0" />
+		<!--CQRS-->
+		<PackageReference Include="MediatR" Version="12.4.1" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.10" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\ExpenceTracker.Domain\Domain.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+	  <ProjectReference Include="..\parinaybharat.api.domain\parinaybharat.api.domain.csproj" />
+	</ItemGroup>
 ```
 
-### Users/Commands/CreateUser/CreateUserCommand.cs
-```csharp
-using Domain.Enums;
-using LanguageExt.Common;
-using MediatR;
-
-namespace Application.Users.Commands.CreateUser
-{
-    public record CreateUserCommand(
-        string FirstName,
-        string? LastName,
-        string Username,
-        DateTime? DateOfBirth,
-        LoginMethod LoginMethod,
-        Gender? Gender)
-        : IRequest<Result<Guid>>;
-}
-```
-
-### Users/Commands/CreateUser/CreateUserCommandHandler.cs
-```csharp
-using Domain.Abstractions;
-using Domain.Users;
-using LanguageExt.Common;
-using MediatR;
-using Microsoft.Extensions.Logging;
-
-namespace Application.Users.Commands.CreateUser
-{
-    public sealed class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Result<Guid>>
-    {
-        private readonly ILogger<CreateUserCommandHandler> logger;
-        private readonly IUserRepository userRepo;
-
-        public CreateUserCommandHandler(ILogger<CreateUserCommandHandler> logger, IUserRepository userRepo)
-        {
-            this.logger = logger;
-            this.userRepo = userRepo;
-        }
-
-        public async Task<Result<Guid>> Handle(CreateUserCommand request, CancellationToken cancellationToken)
-        {
-            //Create user
-            var user = new User(
-                request.FirstName,
-                request.LastName,
-                request.Username,
-                request.DateOfBirth,
-                request.LoginMethod,
-                request.Gender
-                );
-
-            var createUserResult = userRepo.CreateUser(user);
-
-            if (createUserResult.IsFaulted)
-            {
-                logger.LogDebug($"Unable to create a new user {createUserResult}");
-                return createUserResult;
-            }
-
-            return createUserResult;
-        }
-    }
-}
-```
-
-# C. Infrastructure
-
-### Packages
+### Persistance
 ```xml
-  <ItemGroup>
-    <PackageReference Include="LanguageExt.Core" Version="4.4.8" />
-  </ItemGroup>
+	<ItemGroup>
+		<!--EF CORE-->
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.10" />
+		<PackageReference Include="MongoDB.EntityFrameworkCore" Version="8.1.1" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\ExpenceTracker.Domain\Domain.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+	  <ProjectReference Include="..\parinaybharat.api.application\parinaybharat.api.application.csproj" />
+	</ItemGroup>
 ```
 
-### Repositories/UserRepository.cs
-```csharp
-using Domain.Abstractions;
-using Domain.Exceptions;
-using Domain.Users;
-using LanguageExt.Common;
-
-namespace Infrastructure.Repositories
-{
-    public sealed class UserRepository : IUserRepository
-    {
-        public Result<Guid> CreateUser(User user)
-        {
-            return new Result<Guid>(new InvalidLoginException(user.Username));
-        }
-
-        public Result<Guid> DeleteUser(User user)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Result<Guid> UpdateUser(User user)
-        {
-            throw new NotImplementedException();
-        }
-    }
-}
-```
-
-# D. Presentation
-
-### Packages
+### Presentation
 ```xml
-  <ItemGroup>
-  	<PackageReference Include="MediatR" Version="12.2.0" />
-  	<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.6" />
-    <PackageReference Include="Carter" Version="8.2.0" />
-  </ItemGroup>
+	<ItemGroup>
+		<!--OPEN API-->
+		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.8.1" />
+		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.10" />
+		<!--API VERSIONING-->
+		<PackageReference Include="Asp.Versioning.Http" Version="8.1.0" />
+		<!--MINIMAL API-->
+		<PackageReference Include="Carter" Version="8.2.1" />
+		<!--REDIS CACHE-->
+		<PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.10" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\ExpenceTracker.Application\Application.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+	  <ProjectReference Include="..\parinaybharat.api.application\parinaybharat.api.application.csproj" />
+	</ItemGroup>
 ```
 
-### User/UserModule.cs
-```csharp
-### User/UserModule.cs
-```csharp
-using Application.Users.Commands.CreateUser;
+# Program.cs
+
+```cs
 using Carter;
-using Domain.Enums;
-using MediatR;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
+using Microsoft.OpenApi.Models;
+using parinaybharat.api.Installers.Base;
+using System.Reflection;
 
-namespace Presentation.User
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddEndpointsApiExplorer();
+
+AutoInstall(builder.Host, builder.Services, builder.Configuration, Assembly.GetExecutingAssembly());
+
+var app = builder.Build();
+if (app.Environment.IsDevelopment())
 {
-    public sealed class UserModule : CarterModule
-    {
-        public UserModule() : base("user")
-        {
-            WithTags("User Endpoints");
-        }
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
-        public override void AddRoutes(IEndpointRouteBuilder app)
+app.UseCors("AllowAll");
+app.UseHttpsRedirection();
+app.MapCarter();
+app.Run();
+
+static void AutoInstall(IHostBuilder host, IServiceCollection services, IConfiguration configuration, Assembly assembly)
+{
+    var installers = assembly.GetTypes()
+        .Where(t => typeof(IServiceInstaller).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
+        .Select(Activator.CreateInstance)
+        .Cast<IServiceInstaller>()
+        .ToList();
+
+    installers.ForEach(installer => installer.InstallService(host, services, configuration));
+}
+```
+
+# Installers
+
+### ApiServiceInstaller
+```cs
+public sealed class ApiServiceInstaller : IServiceInstaller
+{
+    public void InstallService(IHostBuilder host, IServiceCollection services, IConfiguration configuration)
+    {
+        //Serilog + Seq
+        var seqApiKey = configuration.GetConnectionString("Seq");
+        host.UseSerilog((context, services, configuration) =>
         {
-            app.MapPost("/", async (IMediator mediator) =>
+            configuration
+                .MinimumLevel.Information()
+                .Enrich.FromLogContext()
+                .Filter.ByExcluding(Matching.FromSource("Microsoft.AspNetCore"))
+                .Filter.ByExcluding(Matching.FromSource("Microsoft.Hosting"))
+                .Filter.ByExcluding(Matching.FromSource("Microsoft.AspNetCore.Mvc"))
+                .Filter.ByExcluding(Matching.FromSource("Microsoft.EntityFrameworkCore.Database.Command"))
+                .WriteTo.Console(outputTemplate: "{Timestamp:dd/MM/yy hh:mm:ss tt} [{Level:u3}] {Message}{NewLine}{Exception}")
+                .WriteTo.Async(x => x.Seq("https://seq.twileloop.com", apiKey: seqApiKey));
+        });
+
+        //CORS
+        services.AddCors(options =>
+        {
+            options.AddPolicy("AllowAll",
+                builder =>
+                {
+                    builder
+                    .AllowAnyOrigin()
+                    .AllowAnyMethod()
+                    .AllowAnyHeader();
+                });
+        });
+
+        //JSON
+        services.ConfigureHttpJsonOptions(options =>
+        {
+            options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        });
+
+        //SWAGGER
+        services.AddSwaggerGen(c =>
+        {
+            c.SwaggerDoc("v1", new OpenApiInfo
             {
-                var result = await mediator.Send(new CreateUserCommand(
-                    "Sangeeth",
-                    "Nandakumar",
-                    "sangee",
-                    DateTime.Now,
-                    LoginMethod.PASSWORD,
-                    Gender.MALE));
+                Title = "ParinayBharat API",
+                Version = "v1"
+            });
 
-                return result.Match(s => Results.Ok(), f => Results.BadRequest(f.Message));
-            })
-            .WithSummary("Logs Income/Expence")
-            .WithDescription("Adds income or expence from the user");
-        }
-    }
+            c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            {
+                Description = "JWT Authorization header using the Bearer scheme.",
+                Name = "Authorization",
+                In = ParameterLocation.Header,
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer"
+            });
 
-}
-```
+            c.AddSecurityRequirement(new OpenApiSecurityRequirement
+            {
+                {
+                    new OpenApiSecurityScheme
+                    {
+                        Reference = new OpenApiReference
+                        {
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        }
+                    },
+                    new string[] {}
+                }
+            });
 
-# Main API Project (Expence Tracker)
-
-### Packages
-```xml
-  <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.6" />
-    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.20.1" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\ExpenceTracker.Infrastructure\Infrastructure.csproj" />
-    <ProjectReference Include="..\ExpenceTracker.Presentation\Presentation.csproj" />
-  </ItemGroup>
-```
-
-### Installers/IServiceInstaller.cs
-```csharp
-namespace ExpenceTracker.Installers
-{
-    public interface IServiceInstaller
-    {
-        void InstallService(IServiceCollection services, IConfiguration configuration);
+            var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+            c.IncludeXmlComments(xmlPath);
+        });
     }
 }
 ```
 
-### Installers/ApplicationServiceInstaller.cs
-```csharp
-using Application.Users.Commands.CreateUser;
-using Domain.Abstractions;
-using Infrastructure.Repositories;
-
-namespace ExpenceTracker.Installers
-{
+### ApplicationServiceInstaller
+```cs
     public sealed class ApplicationServiceInstaller : IServiceInstaller
     {
-        public void InstallService(IServiceCollection services, IConfiguration configuration)
+        public void InstallService(IHostBuilder host, IServiceCollection services, IConfiguration configuration)
         {
             //MediatR
-            services.AddMediatR(c => c.RegisterServicesFromAssemblyContaining<CreateUserCommand>());
+            services.AddMediatR(c => c.RegisterServicesFromAssemblyContaining<IAppDBContext>());
 
-            //Dependencies
-            services.AddSingleton<IUserRepository, UserRepository>();
+            //Automapper
+            services.AddAutoMapper(typeof(IAppDBContext));
+
+            //Fluent Validator
+            services.AddValidatorsFromAssemblyContaining<IAppDBContext>(ServiceLifetime.Singleton);
         }
     }
-}
 ```
 
-### Installers/InfrastructureServiceInstaller.cs
-```csharp
-namespace ExpenceTracker.Installers
-{
-    public sealed class InfrastructureServiceInstaller : IServiceInstaller
-    {
-        public void InstallService(IServiceCollection services, IConfiguration configuration)
-        {
+### PersistanceServiceInstaller
+```cs
+  public sealed class PersistanceServiceInstaller : IServiceInstaller
+  {
+      public void InstallService(IHostBuilder host, IServiceCollection services, IConfiguration configuration)
+      {
+          //EF Core
+          var connectionString = configuration.GetConnectionString("TrackerDB");
+          var dbName = "TrackerDB";
+          services.AddDbContext<AppDBContext>(options => options.UseMongoDB(connectionString, dbName));
+          services.AddScoped<IAppDBContext, AppDBContext>();
+      }
+  }
+```
 
-        }
+### PresentationServiceInstaller
+```cs
+public sealed class PresentationServiceInstaller : IServiceInstaller
+{
+    public void InstallService(IHostBuilder host, IServiceCollection services, IConfiguration configuration)
+    {
+        //Redis Cache
+        var redisConnectionString = configuration.GetConnectionString("Redis");
+        services.AddStackExchangeRedisCache(options =>
+        {
+            options.Configuration = redisConnectionString;
+            options.InstanceName = "TrackerCache";
+        });
+
+        //Carter
+        services.AddCarter();
+
+        //API VERSIONING
+        services.AddApiVersioning(options =>
+        {
+            options.DefaultApiVersion = new ApiVersion(1);
+            options.ReportApiVersions = true;
+            options.AssumeDefaultVersionWhenUnspecified = true;
+            options.ApiVersionReader = ApiVersionReader.Combine(
+                new UrlSegmentApiVersionReader(),
+                new HeaderApiVersionReader("x-api-version"));
+        });
     }
 }
 ```
