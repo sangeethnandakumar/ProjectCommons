@@ -55,3 +55,57 @@ public class ForgeRockAuthorizationHandler : AuthorizationHandler<ForgeRockAutho
     }
 }
 ```
+
+## Authorization Requirement
+```cs
+public class ForgeRockAuthorizationRequirement : IAuthorizationRequirement {}
+```
+
+## Options
+```cs
+public class ForgeRockOptions
+{
+    public string Endpoint {get; set;}
+}
+```
+
+<hr/>
+
+## DI Wiring In Program.cs
+```cs
+
+//...
+//...
+builder.ForgeRockAuthorization();
+builder.ForgeRockAuthentication();
+
+//...
+
+builder.UseAuthorization();
+builder.UseAuthentication();
+//...
+//...
+
+static void ForgeRockAuthorization(WebApplicationBuilder builder)
+{
+    builder.Services.Configure<ForgeRockOptions>(builder.Configuration.GetSection("ForgeRock"));
+    builder.Services.AddHttpClient();
+    builder.Services.AddAuthorization(options =>
+    {
+        options.AddPolicy("ForgeRockPolicy", policy =>
+        {
+            policy.AuthenticationSchemes.Add("ForgeRock");
+            policy.Requirements.Add(new ForgeRockAuthorizationRequirement());
+        });
+    });
+    builder.Services.AddSingleton<IAuthorizationHandler, ForgeRockAuthorizationHandler>();
+    builder.Services.AddSingleton<IAuthorizationRequirement, ForgeRockAuthorizationRequirement>();
+}
+
+static void ForgeRockAuthentication(WebApplicationBuilder builder)
+{
+    builder.Services
+        .AddAuthentication("ForgeRock")
+        .AddScheme<AuthenticationSchemeOptions, ForgeRockAuthenticationHandler>("ForgeRock", null);
+}
+```
