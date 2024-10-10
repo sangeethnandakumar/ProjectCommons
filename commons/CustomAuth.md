@@ -1,25 +1,34 @@
 # Complete Custom Authentication & Authorization Handlers
 
 ## Authentication Handler
-```cs
-public class ForgeRockAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
-{
-    private readonly IHttpContextAccessor httpContextAccessor;
-    private readonly ILogger<ForgeRockAuthenticationHandler> logger;
-    private readonly IOptions<ForgeRockOptions> forgeRockOptions;
 
-    public ForgeRockAuthenticationHandler(IOptions<ForgeRockOptions> forgeRockOptions, IHttpContextAccessor httpContextAccessor = null) 
+```csharp
+public class CustomAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+{
+    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ILogger<CustomAuthenticationHandler> _logger;
+    private readonly IOptions<CustomOptions> _customOptions;
+
+    public CustomAuthenticationHandler(
+        IOptionsMonitor<AuthenticationSchemeOptions> options,
+        ILoggerFactory loggerFactory,
+        UrlEncoder encoder,
+        ISystemClock clock,
+        IOptions<CustomOptions> customOptions,
+        IHttpContextAccessor httpContextAccessor = null)
         : base(options, loggerFactory, encoder, clock)
     {
-        this.logger = logger;
-        this.forgeRockOptions = forgeRockOptions;
-        this.httpContextAccessor = httpContextAccessor;
+        _logger = loggerFactory.CreateLogger<CustomAuthenticationHandler>();
+        _customOptions = customOptions;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        logger.LogInformation("Inside Authentication Handler");
+        _logger.LogInformation("Inside Authentication Handler");
         var claims = new List<Claim>();
+        var identity = new ClaimsIdentity(claims, Scheme.Name);
+        var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, Scheme.Name);
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }
@@ -27,29 +36,33 @@ public class ForgeRockAuthenticationHandler : AuthenticationHandler<Authenticati
 ```
 
 ## Authorization Handler
-```cs
-public class ForgeRockAuthorizationHandler : AuthorizationHandler<ForgeRockAuthorizationRequirement>
-{
-    private readonly IHttpClientFactory httpClientFactory;
-    private readonly IOptions<ForgeRockOptions> forgeRockOptions;
-    private readonly ILogger<ForgeRockAuthorizationHandler> logger;
 
-    public ForgeRockAuthorizationHandler(IHttpClientFactory httpClientFactory, IOptions<ForgeRockOptions> forgeRockOptions, ILogger<ForgeRockAuthorizationHandler> logger)
+```csharp
+public class CustomAuthorizationHandler : AuthorizationHandler<CustomAuthorizationRequirement>
+{
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IOptions<CustomOptions> _customOptions;
+    private readonly ILogger<CustomAuthorizationHandler> _logger;
+
+    public CustomAuthorizationHandler(
+        IHttpClientFactory httpClientFactory,
+        IOptions<CustomOptions> customOptions,
+        ILogger<CustomAuthorizationHandler> logger)
     {
-        this.httpClientFactory = httpClientFactory;
-        this.forgeRockOptions = forgeRockOptions;
-        this.logger = logger;
+        _httpClientFactory = httpClientFactory;
+        _customOptions = customOptions;
+        _logger = logger;
     }
 
-    protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, ForgeRockAuthorizationRequirement requirement)
+    protected override Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        CustomAuthorizationRequirement requirement)
     {
-        logger.LogInformation("Inside Authorization Handler");
-
+        _logger.LogInformation("Inside Authorization Handler");
         if (!context.User.Identity.IsAuthenticated)
         {
             return Task.CompletedTask;
         }
-
         context.Succeed(requirement);
         return Task.CompletedTask;
     }
@@ -57,55 +70,58 @@ public class ForgeRockAuthorizationHandler : AuthorizationHandler<ForgeRockAutho
 ```
 
 ## Authorization Requirement
-```cs
-public class ForgeRockAuthorizationRequirement : IAuthorizationRequirement {}
+
+```csharp
+public class CustomAuthorizationRequirement : IAuthorizationRequirement { }
 ```
 
 ## Options
-```cs
-public class ForgeRockOptions
+
+```csharp
+public class CustomOptions
 {
-    public string Endpoint {get; set;}
+    public string Endpoint { get; set; }
 }
 ```
 
-<hr/>
+---
 
 ## DI Wiring In Program.cs
-```cs
 
+```csharp
 //...
+builder.Services.AddCustomAuthorization();
+builder.Services.AddCustomAuthentication();
 //...
-builder.ForgeRockAuthorization();
-builder.ForgeRockAuthentication();
-
-//...
-
-builder.UseAuthorization();
-builder.UseAuthentication();
-//...
+app.UseAuthentication();
+app.UseAuthorization();
 //...
 
-static void ForgeRockAuthorization(WebApplicationBuilder builder)
+public static class ServiceCollectionExtensions
 {
-    builder.Services.Configure<ForgeRockOptions>(builder.Configuration.GetSection("ForgeRock"));
-    builder.Services.AddHttpClient();
-    builder.Services.AddAuthorization(options =>
+    public static IServiceCollection AddCustomAuthorization(this IServiceCollection services)
     {
-        options.AddPolicy("ForgeRockPolicy", policy =>
+        services.Configure<CustomOptions>(services.BuildServiceProvider().GetRequiredService<IConfiguration>().GetSection("Custom"));
+        services.AddHttpClient();
+        services.AddAuthorization(options =>
         {
-            policy.AuthenticationSchemes.Add("ForgeRock");
-            policy.Requirements.Add(new ForgeRockAuthorizationRequirement());
+            options.AddPolicy("CustomPolicy", policy =>
+            {
+                policy.AuthenticationSchemes.Add("Custom");
+                policy.Requirements.Add(new CustomAuthorizationRequirement());
+            });
         });
-    });
-    builder.Services.AddSingleton<IAuthorizationHandler, ForgeRockAuthorizationHandler>();
-    builder.Services.AddSingleton<IAuthorizationRequirement, ForgeRockAuthorizationRequirement>();
-}
+        services.AddSingleton<IAuthorizationHandler, CustomAuthorizationHandler>();
+        services.AddSingleton<IAuthorizationRequirement, CustomAuthorizationRequirement>();
+        return services;
+    }
 
-static void ForgeRockAuthentication(WebApplicationBuilder builder)
-{
-    builder.Services
-        .AddAuthentication("ForgeRock")
-        .AddScheme<AuthenticationSchemeOptions, ForgeRockAuthenticationHandler>("ForgeRock", null);
+    public static IServiceCollection AddCustomAuthentication(this IServiceCollection services)
+    {
+        services
+            .AddAuthentication("Custom")
+            .AddScheme<AuthenticationSchemeOptions, CustomAuthenticationHandler>("Custom", null);
+        return services;
+    }
 }
 ```
