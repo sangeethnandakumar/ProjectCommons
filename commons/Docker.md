@@ -39,6 +39,24 @@ sudo apt install docker-ce docker-ce-cli containerd.io
 
 <hr/>
 
+### C-Advisor
+##### Monitors docker containers
+```
+docker run \
+  --volume=/:/rootfs:ro \
+  --volume=/var/run:/var/run:ro \
+  --volume=/sys:/sys:ro \
+  --volume=/var/lib/docker/:/var/lib/docker:ro \
+  --volume=/dev/disk/:/dev/disk:ro \
+  --publish=9080:8080 \
+  --detach=true \
+  --name=cadvisor \
+  --privileged \
+  --device=/dev/kmsg \
+  -v /docker_volumes/cadvisor:/cadvisor_data:rw \
+  gcr.io/cadvisor/cadvisor
+```
+
 ### Promethius
 ##### It need root access within the container, So pass `-u 0:0` to docker
 ```powershell
