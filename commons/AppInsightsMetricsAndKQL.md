@@ -27,6 +27,23 @@ namespace parinaybharat.api.application.Helpers.Telemetry
 
 ```
 
+### KQL
+```kql
+customMetrics 
+| where name in ("Request Duration", "DB Query Duration", "ForgeRock Auth Duration")
+| extend endpoint = tostring(customDimensions.EndpointName)
+| extend method = tostring(customDimensions.Method)
+| extend statusCode = tostring(customDimensions.StatusCode)
+| extend metricType = case(
+    name == "Request Duration", "1. Total Request", 
+    name == "DB Query Duration", "2. DB Query",
+    name == "ForgeRock Auth Duration", "3. Auth",
+    "Unknown"
+)
+| summarize avg(value) by bin(timestamp, 5m), metricType
+| render areachart   
+```
+
 ### TelemetryService
 ```cs
 using Microsoft.ApplicationInsights;
