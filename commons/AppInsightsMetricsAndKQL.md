@@ -1,139 +1,219 @@
 # AppInsghts Metrics and KQL
 ![image](https://github.com/user-attachments/assets/0fb187a2-ae67-4278-bcbf-c9a184e79a3a)
 
-## Use Metrics Like This
+## Setup TelemetryService
+
+### ITelemetryService
+```cs
+namespace parinaybharat.api.application.Helpers.Telemetry
+{
+    public interface ITelemetryService
+    {
+        void TrackEvent(string name, IDictionary<string, string> properties = null);
+        void TrackMetric(string name, double value, IDictionary<string, string> properties = null);
+        string TrackChainedDependency(
+            string name,
+            TimeSpan duration,
+            bool success,
+            string target = null,
+            string dependencyType = DependencyType.HTTP,
+            string parentId = null,
+            string operationId = null);
+        void TrackException(Exception exception, string requestId, IDictionary<string, string> properties = null);
+    }
+}
+
+```
+
+### TelemetryService
 ```cs
 using Microsoft.ApplicationInsights;
+using Microsoft.ApplicationInsights.DataContracts;
+using System;
+using System.Collections.Generic;
+
+namespace parinaybharat.api.application.Helpers.Telemetry
+{
+    public class TelemetryService : ITelemetryService
+    {
+        private readonly TelemetryClient _telemetryClient;
+
+        public TelemetryService(TelemetryClient telemetryClient)
+        {
+            _telemetryClient = telemetryClient;
+        }
+
+        public void TrackEvent(string name, IDictionary<string, string> properties = null)
+        {
+            _telemetryClient.TrackEvent(name, properties);
+        }
+
+        public void TrackMetric(string name, double value, IDictionary<string, string> properties = null)
+        {
+            _telemetryClient.TrackMetric(name, value, properties);
+        }
+
+        public string TrackChainedDependency(
+            string name,
+            TimeSpan duration,
+            bool success,
+            string target = null,
+            string dependencyType = DependencyType.HTTP,
+            string parentId = null,
+            string operationId = null) // New parameter for operationId
+        {
+            var dependencyTelemetry = new DependencyTelemetry
+            {
+                Name = name,
+                Type = dependencyType.ToString(),
+                Target = target ?? "Unknown",
+                Data = "Chained dependency call",
+                Duration = duration,
+                Success = success,
+                Timestamp = DateTimeOffset.UtcNow
+            };
+
+            if (!string.IsNullOrEmpty(parentId))
+            {
+                dependencyTelemetry.Context.Operation.ParentId = parentId; // Set parent ID for chaining
+            }
+
+            if (!string.IsNullOrEmpty(operationId))
+            {
+                dependencyTelemetry.Context.Operation.Id = operationId; // Set operation ID for overall request
+            }
+
+            _telemetryClient.TrackDependency(dependencyTelemetry);
+            return dependencyTelemetry.Id; // Return ID to be used as ParentId for the next dependency
+        }
+
+
+        public void TrackException(Exception exception, string requestId, IDictionary<string, string> properties = null)
+        {
+            var propertiesWithRequestId = properties ?? new Dictionary<string, string>();
+            propertiesWithRequestId["RequestId"] = requestId;
+            _telemetryClient.TrackException(exception, propertiesWithRequestId);
+        }
+    }
+}
+```
+
+### Dependency Types Azure Supports
+```cs
+namespace parinaybharat.api.application.Helpers.Telemetry
+{
+    public static class DependencyType
+    {
+        public const string SQL = "SQL";
+        public const string HTTP = "HTTP";
+        public const string AzureBlob = "Azure Blob";
+        public const string AzureTable = "Azure Table";
+        public const string AzureQueue = "Azure Queue";
+        public const string WebService = "Web Service";
+        public const string WCFService = "WCF Service";
+        public const string AJAX = "AJAX";
+        public const string Other = "Other";
+    }
+}
+```
+
+## Sample Usage
+
+```cs
 using Microsoft.AspNetCore.Http;
+using parinaybharat.api.application.Helpers.Telemetry;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace parinaybharat.api.presentation.Middlewares
 {
     public class RequestTimingMiddleware
     {
         private readonly RequestDelegate _next;
-        private readonly TelemetryClient _telemetryClient;
+        private readonly ITelemetryService _telemetryService;
 
-        public RequestTimingMiddleware(RequestDelegate next, TelemetryClient telemetryClient)
+        public RequestTimingMiddleware(RequestDelegate next, ITelemetryService telemetryService)
         {
             _next = next;
-            _telemetryClient = telemetryClient;
+            _telemetryService = telemetryService;
         }
 
         public async Task InvokeAsync(HttpContext context)
         {
             var stopwatch = Stopwatch.StartNew();
+            string requestId = Guid.NewGuid().ToString();
+            string parentDependencyId = null;
+
             try
             {
-                await Task.Delay(new Random().Next(0, 100));
+                // HTTP dependency example
+                var dependencyDuration = TimeSpan.FromMilliseconds(new Random().Next(50, 200));
+                bool dependencySuccess = new Random().Next(0, 10) > 2;
+
+
+                // First dependency
+                var firstDependencyDuration = TimeSpan.FromMilliseconds(new Random().Next(50, 200));
+                parentDependencyId = _telemetryService.TrackChainedDependency("ForgerockAuthResolution",
+                                                                              firstDependencyDuration,
+                                                                              success: true,
+                                                                              target: "Forgerock Introspection",
+                                                                              dependencyType: DependencyType.HTTP,
+                                                                              "API Flow");
+
+                // Second dependency in chain, using the first's ID as parent
+                var secondDependencyDuration = firstDependencyDuration.Add(TimeSpan.FromMilliseconds(20));
+                parentDependencyId = _telemetryService.TrackChainedDependency("ManagedInstanceQuery",
+                                                                              secondDependencyDuration,
+                                                                              success: false,
+                                                                              target: "SQL Database",
+                                                                              dependencyType: DependencyType.SQL,
+                                                                              parentId: parentDependencyId,
+                                                                              "API Flow");
+
+                // Third dependency in chain, using the second's ID as parent
+                var thirdDependencyDuration = secondDependencyDuration.Add(TimeSpan.FromMilliseconds(30));
+                _telemetryService.TrackChainedDependency("ExternalApiCall",
+                                                         thirdDependencyDuration,
+                                                         success: true,
+                                                         target: "External Service",
+                                                         dependencyType: DependencyType.AzureBlob,
+                                                         parentId: parentDependencyId,
+                                                         "API Flow");
+
+
                 await _next(context);
+
+                // Track a successful request event
+                _telemetryService.TrackEvent("RequestProcessed", new Dictionary<string, string>
+                {
+                    { "RequestId", requestId },
+                    { "EndpointName", context.Request.Path },
+                    { "Method", context.Request.Method }
+                });
+            }
+            catch (Exception ex)
+            {
+                // Track any exceptions encountered
+                _telemetryService.TrackException(ex, requestId);
             }
             finally
             {
                 stopwatch.Stop();
-
-                // Get the endpoint name
                 var endpoint = context.GetEndpoint();
                 var endpointName = endpoint?.DisplayName ?? context.Request.Path;
 
-                // Track the metric with more properties for better filtering
-                _telemetryClient.TrackMetric("Request Duration", stopwatch.ElapsedMilliseconds, new Dictionary<string, string>
+                // Track the total duration of the request
+                _telemetryService.TrackMetric("Request Duration", stopwatch.Elapsed.TotalMilliseconds, new Dictionary<string, string>
                 {
                     { "EndpointName", endpointName },
                     { "Method", context.Request.Method },
-                    { "StatusCode", context.Response.StatusCode.ToString() }
-                });
-
-                _telemetryClient.TrackMetric("DB Query Duration", stopwatch.ElapsedMilliseconds - 5, new Dictionary<string, string>
-                {
-                    { "EndpointName", endpointName },
-                    { "Method", context.Request.Method },
-                    { "StatusCode", context.Response.StatusCode.ToString() }
-                });
-
-                _telemetryClient.TrackMetric("ForgeRock Auth Duration", stopwatch.ElapsedMilliseconds - 10, new Dictionary<string, string>
-                {
-                    { "EndpointName", endpointName },
-                    { "Method", context.Request.Method },
-                    { "StatusCode", context.Response.StatusCode.ToString() }
+                    { "StatusCode", context.Response.StatusCode.ToString() },
+                    { "RequestId", requestId }
                 });
             }
         }
-    }
-}
-```
-
-## KQL
-```kql
-customMetrics 
-| where name in ("Request Duration", "DB Query Duration", "ForgeRock Auth Duration")
-| extend endpoint = tostring(customDimensions.EndpointName)
-| extend method = tostring(customDimensions.Method)
-| extend statusCode = tostring(customDimensions.StatusCode)
-| extend metricType = case(
-    name == "Request Duration", "1. Total Request", 
-    name == "DB Query Duration", "2. DB Query",
-    name == "ForgeRock Auth Duration", "3. Auth",
-    "Unknown"
-)
-| summarize avg(value) by bin(timestamp, 5m), metricType
-| render areachart   
-```
-
-## Optional Dependency Tracking
-```cs
-public class ForgerockTokenValidator
-{
-    private readonly TelemetryClient _telemetryClient;
-
-    public ForgerockTokenValidator(TelemetryClient telemetryClient)
-    {
-        _telemetryClient = telemetryClient;
-    }
-
-    public async Task<bool> IntrospectTokenAsync(string token)
-    {
-        var dependencyTelemetry = new DependencyTelemetry
-        {
-            Name = "Forgerock Token Introspection",
-            Type = "HTTP",
-            Target = "ForgerockAPI",
-            Data = "Introspect Token",
-            Timestamp = DateTimeOffset.UtcNow
-        };
-
-        var stopwatch = Stopwatch.StartNew();
-        try
-        {
-            // Perform the Forgerock token introspection
-            var isValid = await CallForgerockIntrospectionAsync(token);
-            
-            // Mark the dependency as successful
-            dependencyTelemetry.Success = true;
-            return isValid;
-        }
-        catch (Exception ex)
-        {
-            // Log exception details to the telemetry
-            dependencyTelemetry.Success = false;
-            dependencyTelemetry.Properties["Error"] = ex.Message;
-            throw;
-        }
-        finally
-        {
-            stopwatch.Stop();
-            dependencyTelemetry.Duration = stopwatch.Elapsed;
-
-            // Send the telemetry to Application Insights
-            _telemetryClient.TrackDependency(dependencyTelemetry);
-        }
-    }
-
-    private async Task<bool> CallForgerockIntrospectionAsync(string token)
-    {
-        // Your Forgerock introspection logic here
-        await Task.Delay(100); // Simulating the call
-        return true;
     }
 }
 ```
