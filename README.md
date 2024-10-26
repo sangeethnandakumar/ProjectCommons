@@ -7,6 +7,7 @@ Contains common setup and files to enable fast prototyping of complex applicatio
 
 File | Title | Description
 --- | --- | ---
+<a href='commons/AppInsghts.md'>Serilog + Azure App Insghts</a> | Serilog and Azure App Insghts integration | Azure App Insghts
 <a href='commons/AzureStorageService.md'>Azure Storage Service</a> | Azure Storage Service For Managing Azure Uploads/Downloads and Info | Azure Storage
 <a href='commons/KeyVault.md'>Azure KeyVault Service</a> | Azure KeyVault Access | Azure KeyVault Access
 <a href='commons/CustomAuth.md'>Policy Based Authentication & Authorization</a> | Custom Authentication & Authorization | Complete control of authentication and authorization using handlers and requirements
