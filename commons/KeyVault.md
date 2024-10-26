@@ -7,7 +7,7 @@
 
 ## Step 3: Access Secret Contents
 ```cs
-  var tenantId = "082606ea-afa8-4965-96cb-7562de969215";
+  var tenantId = "*****************";
   var clientId = "*****************"; //App ID in Azure App Registrations
   var clientSecret = "******************"; //Create client credentials
   var keyVaultUri = new Uri("https://parinaybharat.vault.azure.net/");
