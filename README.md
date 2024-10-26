@@ -7,6 +7,7 @@ Contains common setup and files to enable fast prototyping of complex applicatio
 
 File | Title | Description
 --- | --- | ---
+<a href='commons/AzureStorageService.md'>Azure Storage Service For Managing Azure Uploads/Downloads and Info</a> | Azure Storage Service For Managing Azure Uploads/Downloads and Info | Azure Storage
 <a href='commons/KeyVault.md'>Azure KeyVault Access</a> | Azure KeyVault Access | Azure KeyVault Access
 <a href='commons/CustomAuth.md'>Policy Based Authentication & Authorization</a> | Custom Authentication & Authorization | Complete control of authentication and authorization using handlers and requirements
 <a href='commons/ghpages.md'>React + GitHub Pages</a> | Static SPA Deployment | Deploy react app to Github pages
