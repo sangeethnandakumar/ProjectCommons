@@ -20,11 +20,98 @@
 	</ItemGroup>
 ```
 
+## Add Logger Extensions
+```cs
+using Microsoft.ApplicationInsights;
+using Serilog;
+using Serilog.Filters;
+
+namespace parinaybharat.api.Extensions
+{
+    public static class LoggerExtensions
+    {
+        public static void ConfigureApplicationLogging(this WebApplicationBuilder builder)
+        {
+            // Bind the configuration
+            var loggerConfig = new LoggerConfig();
+            builder.Configuration.GetSection("LoggerConfiguration").Bind(loggerConfig);
+
+            // Setup Serilog with the custom configuration
+            builder.Host.UseSerilog((context, services, config) =>
+            {
+                config.MinimumLevel.Information()
+                    .Enrich.FromLogContext();
+
+                // Apply exclusions
+                foreach (var exclusion in loggerConfig.Exclusions)
+                {
+                    config.Filter.ByExcluding(Matching.FromSource(exclusion));
+                }
+
+                // Configure Console sink
+                if (loggerConfig.Sinks.Console.Enable)
+                {
+                    config.MinimumLevel.Is((Serilog.Events.LogEventLevel)Enum.Parse(typeof(Serilog.Events.LogEventLevel), loggerConfig.Sinks.Console.MinimumLevel.ToString()));
+                    config.WriteTo.Console(outputTemplate: loggerConfig.Sinks.Console.Template);
+                }
+
+                // Configure File sink
+                if (loggerConfig.Sinks.File.Enable)
+                {
+                    config.MinimumLevel.Is((Serilog.Events.LogEventLevel)Enum.Parse(typeof(Serilog.Events.LogEventLevel), loggerConfig.Sinks.File.MinimumLevel.ToString()));
+                    config.WriteTo.Async(x =>
+                        x.File(
+                            path: loggerConfig.Sinks.File.Path,
+                            rollingInterval: (RollingInterval)Enum.Parse(typeof(RollingInterval), loggerConfig.Sinks.File.RollingInterval.ToString()),
+                            retainedFileCountLimit: loggerConfig.Sinks.File.RetainedFileCountLimit,
+                            fileSizeLimitBytes: loggerConfig.Sinks.File.FileSizeLimitBytes,
+                            rollOnFileSizeLimit: loggerConfig.Sinks.File.RollOnFileSizeLimit,
+                            outputTemplate: loggerConfig.Sinks.File.OutputTemplate)
+                    );
+                }
+
+                // Configure Application Insights sink
+                if (loggerConfig.Sinks.AzureAppInsights.Enable)
+                {
+                    config.MinimumLevel.Is((Serilog.Events.LogEventLevel)Enum.Parse(typeof(Serilog.Events.LogEventLevel), loggerConfig.Sinks.AzureAppInsights.MinimumLevel.ToString()));
+                    config.WriteTo.ApplicationInsights(
+                        services.GetRequiredService<TelemetryClient>(),
+                        TelemetryConverter.Traces);
+                }
+            });
+        }
+    }
+}
+```
+
+## Add IOC Extensions
+```cs
+using parinaybharat.api.Installers.Base;
+using System.Reflection;
+
+namespace parinaybharat.api.Extensions
+{
+    public static class IocExtensions
+    {
+        public static void AutoInstallDependencies(this IHostBuilder host, IServiceCollection services, IConfiguration configuration, Assembly assembly)
+        {
+            var installers = assembly.GetTypes()
+                .Where(t => typeof(IServiceInstaller).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
+                .Select(Activator.CreateInstance)
+                .Cast<IServiceInstaller>()
+                .ToList();
+
+            installers.ForEach(installer => installer.InstallService(host, services, configuration));
+        }
+    }
+}
+```
+
 ## appsettings.json
 ```json
 {
   "ApplicationInsights": {
-    "ConnectionString": " .... "
+    "ConnectionString": ""
   },
   "KeyVault": {
     "TenantId": "",
@@ -32,18 +119,42 @@
     "ClientSecret": "",
     "VaultUri": "",
     "CacheExpirationMinutes": 60
+  },
+  "LoggerConfiguration": {
+    "Exclusions": [
+      "Microsoft.AspNetCore",
+      "Microsoft.Hosting",
+      "Microsoft.AspNetCore.Mvc"
+    ],
+    "Sinks": {
+      "Console": {
+        "Enable": true,
+        "MinimumLevel": "Information",
+        "Template": "{Timestamp:dd/MM/yy hh:mm:ss tt} [{Level:u3}] {Message}{NewLine}{Exception}"
+      },
+      "File": {
+        "Enable": true,
+        "MinimumLevel": "Information",
+        "Path": "Logs/log.txt",
+        "RollingInterval": "Day",
+        "RetainedFileCountLimit": 5,
+        "FileSizeLimitBytes": 20000000,
+        "RollOnFileSizeLimit": true,
+        "OutputTemplate": "{Timestamp:dd/MM/yy hh:mm:ss tt} [{Level:u3}] {Message}{NewLine}{Exception}"
+      },
+      "AzureAppInsights": {
+        "Enable": true,
+        "MinimumLevel": "Information"
+      }
+    }
   }
 }
 ```
 
-## Serilog Setup (Program.cs)
+## Program.cs
 ```
 using Carter;
-using Microsoft.ApplicationInsights.Extensibility;
-using Microsoft.Extensions.Logging.ApplicationInsights;
-using parinaybharat.api.Installers.Base;
-using Serilog;
-using Serilog.Filters;
+using parinaybharat.api.Extensions;
 using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -52,58 +163,23 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplicationInsightsTelemetry();
 
 // 2. Configure Serilog as the logging provider for the application
-ConfigureLogging(builder);
+builder.ConfigureApplicationLogging();
 
 // 3. Register other services
+builder.Host.AutoInstallDependencies(builder.Services, builder.Configuration, Assembly.GetExecutingAssembly());
+
+// 4. Add API Explorer
 builder.Services.AddEndpointsApiExplorer();
-AutoInstall(builder.Host, builder.Services, builder.Configuration, Assembly.GetExecutingAssembly());
 
 var app = builder.Build();
 
-// 4. Swagger for development
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();
 app.MapCarter();
 app.Run();
-
-static void AutoInstall(IHostBuilder host, IServiceCollection services, IConfiguration configuration, Assembly assembly)
-{
-    var installers = assembly.GetTypes()
-        .Where(t => typeof(IServiceInstaller).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
-        .Select(Activator.CreateInstance)
-        .Cast<IServiceInstaller>()
-        .ToList();
-
-    installers.ForEach(installer => installer.InstallService(host, services, configuration));
-}
-
-static void ConfigureLogging(WebApplicationBuilder builder)
-{
-    builder.Host.UseSerilog((context, services, config) =>
-    {
-        config
-            .MinimumLevel.Information()
-            .Enrich.FromLogContext()
-            .Filter.ByExcluding(Matching.FromSource("Microsoft.AspNetCore"))
-            .Filter.ByExcluding(Matching.FromSource("Microsoft.Hosting"))
-            .Filter.ByExcluding(Matching.FromSource("Microsoft.AspNetCore.Mvc"))
-            .WriteTo.Console(outputTemplate: "{Timestamp:dd/MM/yy hh:mm:ss tt} [{Level:u3}] {Message}{NewLine}{Exception}")
-            .WriteTo.Async(x =>
-                x.File(
-                    path: "Logs/log.txt",
-                    rollingInterval: RollingInterval.Day,
-                    retainedFileCountLimit: 5,
-                    fileSizeLimitBytes: 20000000,
-                    rollOnFileSizeLimit: true,
-                    outputTemplate: "{Timestamp:dd/MM/yy hh:mm:ss tt} [{Level:u3}] {Message}{NewLine}{Exception}")
-            )
-            .WriteTo.ApplicationInsights(services.GetRequiredService<TelemetryConfiguration>(), TelemetryConverter.Traces);
-    });
-}
 ```
