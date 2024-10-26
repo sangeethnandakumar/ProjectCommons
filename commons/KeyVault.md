@@ -53,6 +53,14 @@ public interface ISecretProvider
 
 ## Step 7: Create SecretProvider
 ```cs
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
+namespace parinaybharat.api.application.Helpers.Secrets
+{
     public class SecretProvider : ISecretProvider
     {
         private readonly SecretClient _secretClient;
@@ -98,4 +106,23 @@ public interface ISecretProvider
             }
         }
     }
+}
+```
+
+## Step 8: Use Anywhere. When Configuring DBContexts use Scoped
+```cs
+// Remove any DbContext pooling/caching to ensure we always use SecretProvider's cache
+services.AddDbContext<AppDBContext>((sp, options) =>
+{
+    var secretProvider = sp.GetRequiredService<ISecretProvider>();
+    var connectionString = secretProvider.GetSecretAsync("conn-mongodb").GetAwaiter().GetResult();
+    options.UseMongoDB(connectionString, "ParinayBharat");
+}, ServiceLifetime.Scoped);
+
+services.AddScoped<IAppDBContext>(sp => sp.GetRequiredService<AppDBContext>());
+```
+
+## Step 9: Multiple DBContext Scenerios with DbContextBFactory
+```cs
+//To be discussed
 ```
