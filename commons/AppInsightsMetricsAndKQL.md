@@ -79,3 +79,61 @@ customMetrics
 | summarize avg(value) by bin(timestamp, 5m), metricType
 | render areachart   
 ```
+
+## Optional Dependency Tracking
+```cs
+public class ForgerockTokenValidator
+{
+    private readonly TelemetryClient _telemetryClient;
+
+    public ForgerockTokenValidator(TelemetryClient telemetryClient)
+    {
+        _telemetryClient = telemetryClient;
+    }
+
+    public async Task<bool> IntrospectTokenAsync(string token)
+    {
+        var dependencyTelemetry = new DependencyTelemetry
+        {
+            Name = "Forgerock Token Introspection",
+            Type = "HTTP",
+            Target = "ForgerockAPI",
+            Data = "Introspect Token",
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            // Perform the Forgerock token introspection
+            var isValid = await CallForgerockIntrospectionAsync(token);
+            
+            // Mark the dependency as successful
+            dependencyTelemetry.Success = true;
+            return isValid;
+        }
+        catch (Exception ex)
+        {
+            // Log exception details to the telemetry
+            dependencyTelemetry.Success = false;
+            dependencyTelemetry.Properties["Error"] = ex.Message;
+            throw;
+        }
+        finally
+        {
+            stopwatch.Stop();
+            dependencyTelemetry.Duration = stopwatch.Elapsed;
+
+            // Send the telemetry to Application Insights
+            _telemetryClient.TrackDependency(dependencyTelemetry);
+        }
+    }
+
+    private async Task<bool> CallForgerockIntrospectionAsync(string token)
+    {
+        // Your Forgerock introspection logic here
+        await Task.Delay(100); // Simulating the call
+        return true;
+    }
+}
+```
