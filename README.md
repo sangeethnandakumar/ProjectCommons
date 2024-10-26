@@ -7,7 +7,7 @@ Contains common setup and files to enable fast prototyping of complex applicatio
 
 File | Title | Description
 --- | --- | ---
-<a href='commons/KeyVault'>Azure KeyVault Access</a> | Azure KeyVault Access | Azure KeyVault Access
+<a href='commons/KeyVault.md'>Azure KeyVault Access</a> | Azure KeyVault Access | Azure KeyVault Access
 <a href='commons/CustomAuth.md'>Policy Based Authentication & Authorization</a> | Custom Authentication & Authorization | Complete control of authentication and authorization using handlers and requirements
 <a href='commons/ghpages.md'>React + GitHub Pages</a> | Static SPA Deployment | Deploy react app to Github pages
 <a href='commons/CleanArchitecture.md'>Clean Architecture</a> | Clean Architecture | .NET implementation of Clean Architecture with a sample application
