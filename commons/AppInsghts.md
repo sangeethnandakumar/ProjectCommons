@@ -151,8 +151,73 @@ namespace parinaybharat.api.Extensions
 }
 ```
 
-## Program.cs
+## LogConfig Binding Model
+```cs
+namespace parinaybharat.api.Extensions
+{
+    public class LoggerConfig
+    {
+        public List<string> Exclusions { get; set; } = new();
+        public SinkConfig Sinks { get; set; } = new();
+    }
+
+    public class SinkConfig
+    {
+        public ConsoleSink Console { get; set; } = new();
+        public FileSink File { get; set; } = new();
+        public AppInsightsSink AzureAppInsights { get; set; } = new();
+    }
+
+    public class ConsoleSink
+    {
+        public bool Enable { get; set; }
+        public string Template { get; set; }
+        public LogLevel MinimumLevel { get; set; }
+    }
+
+    public class FileSink
+    {
+        public bool Enable { get; set; }
+        public string Path { get; set; }
+        public RollingIntervalEnum RollingInterval { get; set; }
+        public int RetainedFileCountLimit { get; set; }
+        public int FileSizeLimitBytes { get; set; }
+        public bool RollOnFileSizeLimit { get; set; }
+        public string OutputTemplate { get; set; }
+        public LogLevel MinimumLevel { get; set; }
+    }
+
+    public class AppInsightsSink
+    {
+        public bool Enable { get; set; }
+        public LogLevel MinimumLevel { get; set; }
+    }
+
+    // Enums for configuration options
+    public enum RollingIntervalEnum
+    {
+        Infinite,
+        Year,
+        Month,
+        Day,
+        Hour,
+        Minute
+    }
+
+    public enum LogLevel
+    {
+        Verbose,
+        Debug,
+        Information,
+        Warning,
+        Error,
+        Fatal
+    }
+}
 ```
+
+## Program.cs
+```cs
 using Carter;
 using parinaybharat.api.Extensions;
 using System.Reflection;
