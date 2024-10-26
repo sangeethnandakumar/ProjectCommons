@@ -1,7 +1,7 @@
-## Setup The DockerFile.prod
-This is creates a Shared folder as well for volume mounting
+## Step 1
+Create `Dockerfile.prod`
 ```dockerfile
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 EXPOSE 8080
 FROM base AS final
 WORKDIR /app
@@ -9,7 +9,7 @@ WORKDIR /app
 COPY ../../publish/ .
 RUN mkdir -p Shared
 
-ENTRYPOINT ["dotnet", "Instaread.EpubAi.Server.dll"]
+ENTRYPOINT ["dotnet", "parinaybharat.api.dll"]
 ```
 
 ## Shared Folder + Static Assets
