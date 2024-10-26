@@ -1,6 +1,8 @@
 # AppInsghts Metrics and KQL
 ![image](https://github.com/user-attachments/assets/0fb187a2-ae67-4278-bcbf-c9a184e79a3a)
 
+![image](https://github.com/user-attachments/assets/23492fd2-ca3e-4cef-aec1-eead34536544)
+
 ## Setup TelemetryService
 
 ### ITelemetryService
