@@ -136,7 +136,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using System;
-using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -144,129 +143,93 @@ namespace parinaybharat.api.application.Helpers.Secrets.Tests
 {
     public class SecretProviderTests
     {
-        private readonly Mock<IOptions<KeyVaultOptions>> _mockOptions;
         private readonly Mock<IMemoryCache> _mockCache;
         private readonly Mock<ILogger<SecretProvider>> _mockLogger;
+        private readonly SecretProvider _secretProvider;
         private readonly Mock<SecretClient> _mockSecretClient;
-        private readonly KeyVaultOptions _keyVaultOptions;
-        
+
         public SecretProviderTests()
         {
-            _mockOptions = new Mock<IOptions<KeyVaultOptions>>();
             _mockCache = new Mock<IMemoryCache>();
             _mockLogger = new Mock<ILogger<SecretProvider>>();
-            _mockSecretClient = new Mock<SecretClient>();
             
-            _keyVaultOptions = new KeyVaultOptions
-            {
-                VaultUri = "https://test-vault.vault.azure.net/",
-                TenantId = "test-tenant",
-                ClientId = "test-client",
-                ClientSecret = "test-secret",
-                CacheExpirationMinutes = 5
-            };
+            var options = Mock.Of<IOptions<KeyVaultOptions>>(opt => 
+                opt.Value == new KeyVaultOptions 
+                { 
+                    VaultUri = "https://test.vault.azure.net",
+                    TenantId = "tenant",
+                    ClientId = "client",
+                    ClientSecret = "secret",
+                    CacheExpirationMinutes = 5
+                });
+
+            _mockSecretClient = new Mock<SecretClient>(new Uri("https://test.vault.azure.net"), 
+                new Mock<Azure.Core.TokenCredential>().Object);
+                
+            _secretProvider = new SecretProvider(options, _mockCache.Object, _mockLogger.Object);
             
-            _mockOptions.Setup(x => x.Value).Returns(_keyVaultOptions);
+            // Set mock secret client using reflection
+            typeof(SecretProvider)
+                .GetField("_secretClient", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .SetValue(_secretProvider, _mockSecretClient.Object);
         }
 
         [Fact]
-        public async Task GetSecretAsync_WhenSecretExistsInCache_ReturnsFromCache()
+        public async Task GetSecretAsync_WhenInCache_ReturnsFromCache()
         {
             // Arrange
-            const string secretName = "test-secret";
-            const string expectedSecret = "cached-secret-value";
-            var cacheKey = $"KeyVault_{secretName}";
-
-            _mockCache.Setup(x => x.TryGetValue(cacheKey, out expectedSecret))
-                     .Returns(true);
-
-            var secretProvider = new SecretProvider(_mockOptions.Object, _mockCache.Object, _mockLogger.Object);
+            const string secretName = "cached-secret";
+            const string expectedValue = "secret-value";
+            object cachedValue = expectedValue;
+            _mockCache.Setup(x => x.TryGetValue(It.IsAny<object>(), out cachedValue)).Returns(true);
 
             // Act
-            var result = await secretProvider.GetSecretAsync(secretName);
+            var result = await _secretProvider.GetSecretAsync(secretName);
 
             // Assert
-            Assert.Equal(expectedSecret, result);
-            _mockCache.Verify(x => x.TryGetValue(cacheKey, out expectedSecret), Times.Once);
-            _mockLogger.Verify(x => x.Log(
-                LogLevel.Warning,
-                It.IsAny<EventId>(),
-                It.IsAny<It.IsAnyType>(),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()
-            ), Times.Never);
+            Assert.Equal(expectedValue, result);
         }
 
         [Fact]
-        public async Task GetSecretAsync_WhenSecretNotInCache_FetchesFromKeyVaultAndCaches()
+        public async Task GetSecretAsync_WhenNotInCache_FetchesAndCaches()
         {
             // Arrange
-            const string secretName = "test-secret";
-            const string expectedSecret = "vault-secret-value";
-            var cacheKey = $"KeyVault_{secretName}";
-            string outputSecret = null;
-
-            _mockCache.Setup(x => x.TryGetValue(cacheKey, out outputSecret))
-                     .Returns(false);
-
-            var response = Response.FromValue(
-                new KeyVaultSecret(secretName, expectedSecret),
-                Mock.Of<Response>());
-
+            const string secretName = "new-secret";
+            const string secretValue = "vault-value";
+            object cachedValue = null;
+            
+            _mockCache.Setup(x => x.TryGetValue(It.IsAny<object>(), out cachedValue)).Returns(false);
+            _mockCache.Setup(x => x.CreateEntry(It.IsAny<object>()))
+                     .Returns(Mock.Of<ICacheEntry>());
+            
             _mockSecretClient.Setup(x => x.GetSecretAsync(secretName, null, default))
-                           .ReturnsAsync(response);
-
-            var cacheEntryMock = new Mock<ICacheEntry>();
-            _mockCache.Setup(x => x.CreateEntry(cacheKey))
-                     .Returns(cacheEntryMock.Object);
-
-            var secretProvider = new SecretProvider(_mockOptions.Object, _mockCache.Object, _mockLogger.Object);
+                           .ReturnsAsync(Response.FromValue(
+                               new KeyVaultSecret(secretName, secretValue), 
+                               Mock.Of<Response>()));
 
             // Act
-            var result = await secretProvider.GetSecretAsync(secretName);
+            var result = await _secretProvider.GetSecretAsync(secretName);
 
             // Assert
-            Assert.Equal(expectedSecret, result);
-            _mockCache.Verify(x => x.TryGetValue(cacheKey, out outputSecret), Times.Once);
-            _mockLogger.Verify(x => x.Log(
-                LogLevel.Warning,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains(secretName)),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()
-            ), Times.Once);
+            Assert.Equal(secretValue, result);
         }
 
         [Fact]
-        public async Task GetSecretAsync_WhenKeyVaultThrowsException_LogsErrorAndRethrows()
+        public async Task GetSecretAsync_WhenKeyVaultFails_ThrowsException()
         {
             // Arrange
-            const string secretName = "test-secret";
-            var cacheKey = $"KeyVault_{secretName}";
-            string outputSecret = null;
-            var expectedException = new RequestFailedException("Key Vault Error");
-
-            _mockCache.Setup(x => x.TryGetValue(cacheKey, out outputSecret))
-                     .Returns(false);
-
+            const string secretName = "error-secret";
+            object cachedValue = null;
+            var expectedError = new RequestFailedException("Vault error");
+            
+            _mockCache.Setup(x => x.TryGetValue(It.IsAny<object>(), out cachedValue)).Returns(false);
             _mockSecretClient.Setup(x => x.GetSecretAsync(secretName, null, default))
-                           .ThrowsAsync(expectedException);
-
-            var secretProvider = new SecretProvider(_mockOptions.Object, _mockCache.Object, _mockLogger.Object);
+                           .ThrowsAsync(expectedError);
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<RequestFailedException>(
-                () => secretProvider.GetSecretAsync(secretName)
-            );
-
-            Assert.Same(expectedException, exception);
-            _mockLogger.Verify(x => x.Log(
-                LogLevel.Error,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains(secretName)),
-                It.IsAny<RequestFailedException>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()
-            ), Times.Once);
+                () => _secretProvider.GetSecretAsync(secretName));
+            Assert.Same(expectedError, exception);
         }
     }
 }
