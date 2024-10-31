@@ -3,43 +3,6 @@
 
 ![image](https://github.com/user-attachments/assets/23492fd2-ca3e-4cef-aec1-eead34536544)
 
-## Setup TelemetryService
-
-### ITelemetryService
-```cs
-namespace parinaybharat.api.application.Helpers.Telemetry
-{
-    public interface ITelemetryService
-    {
-        void TrackEvent(string name, IDictionary<string, string> properties = null);
-        void TrackMetric(string name, double value, IDictionary<string, string> properties = null);
-        Task<T> RunAndTrackMetricsAsync<T>(Func<Task<T>> context, MetricName metricName);
-        Task RunAndTrackMetricsAsync<T>(Func<Task> context, MetricName metricName);
-        string TrackChainedDependency(
-            string name,
-            TimeSpan duration,
-            bool success,
-            string target = null,
-            string dependencyType = DependencyType.HTTP,
-            string parentId = null,
-            string operationId = null);
-        void TrackException(Exception exception, string requestId, IDictionary<string, string> properties = null);
-    }
-}
-```
-
-### Metric Names
-```cs
-namespace parinaybharat.api.application.Helpers.Telemetry
-{
-    public enum MetricName
-    {
-        TOTAL_REQUEST_TIME,
-        TOTAL_DATABASE_TIME,
-    }
-}
-```
-
 ### KQL
 ```kql
 customMetrics 
@@ -57,132 +20,93 @@ customMetrics
 | render areachart   
 ```
 
-### TelemetryService
+<hr/>
+
+## 1. Create A Wrapper TelemetryClient (As it's a sealed class and can't UnitTest)
+
+### ITelemetryClient
 ```cs
-using CorrelationId.Abstractions;
-using Microsoft.ApplicationInsights;
-using Microsoft.ApplicationInsights.DataContracts;
-using Microsoft.Extensions.Configuration;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Threading.Tasks;
-
-namespace Application.Helpers.Telemetry
-{
-    public class TelemetryService : ITelemetryService
+    public interface ITelemetryClient
     {
-        private readonly IConfiguration configuration;
-        private readonly TelemetryClient telemetryClient;
-        private readonly ICorrelationContextAccessor correlationContext;
+        void TrackEvent(string eventName, IDictionary<string, string> properties = null, IDictionary<string, double> metrices = null);
+        void TrackMetric(string metricName, double value, IDictionary<string, string> properties = null);
+        void TrackDependency(DependencyTelemetry dependencyTelemetry);
+        void TrackException(Exception exception, IDictionary<string, string> properties = null, IDictionary<string, double> metrices = null);
+    }
+```
 
-        public TelemetryService(TelemetryClient telemetryClient, ICorrelationContextAccessor correlationContext, IConfiguration configuration)
-        {
-            this.telemetryClient = telemetryClient ?? throw new ArgumentNullException(nameof(telemetryClient));
-            this.correlationContext = correlationContext ?? throw new ArgumentNullException(nameof(correlationContext));
-            this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-        }
+### TelemetryClientWrapper
+```cs
+public class TelemetryClientWrapper : ITelemetryClient
+{
+    private readonly TelemetryClient _telemetryClient;
 
-        public void TrackEvent(string name, IDictionary<string, string> properties = null)
-        {
-            properties ??= new Dictionary<string, string>();
-            properties["AppName"] = configuration.GetValue<string>("AppName", "DefaultAppName");
-            telemetryClient.TrackEvent(name, properties);
-        }
+    public TelemetryClientWrapper(TelemetryClient telemetryClient)
+    {
+        _telemetryClient = telemetryClient;
+    }
 
-        public void TrackMetric(string name, double value, IDictionary<string, string> properties = null)
-        {
-            telemetryClient.TrackMetric(name, value, properties ?? new Dictionary<string, string>());
-        }
+    public void TrackEvent(string eventName, IDictionary<string, string> properties = null, IDictionary<string, double> metrices = null)
+    {
+        _telemetryClient.TrackEvent(eventName, properties, metrices);
+    }
 
-        public string TrackChainedDependency(
-            string name,
-            TimeSpan duration,
-            bool success,
-            string target = null,
-            string dependencyType = DependencyType.Http,
-            string parentId = null,
-            string operationId = null)
-        {
-            var dependencyTelemetry = new DependencyTelemetry
-            {
-                Name = name,
-                Type = dependencyType.ToString(),
-                Target = target ?? "Unknown",
-                Data = "Chained dependency call",
-                Duration = duration,
-                Success = success,
-                Timestamp = DateTimeOffset.UtcNow
-            };
+    public void TrackMetric(string metricName, double value, IDictionary<string, string> properties = null)
+    {
+        _telemetryClient.TrackMetric(metricName, value, properties);
+    }
 
-            if (!string.IsNullOrEmpty(parentId))
-                dependencyTelemetry.Context.Operation.ParentId = parentId;
-            if (!string.IsNullOrEmpty(operationId))
-                dependencyTelemetry.Context.Operation.Id = operationId;
+    public void TrackDependency(DependencyTelemetry dependencyTelemetry)
+    {
+        _telemetryClient.TrackDependency(dependencyTelemetry);
+    }
 
-            telemetryClient.TrackDependency(dependencyTelemetry);
-            return dependencyTelemetry.Id;
-        }
-
-        public void TrackException(Exception exception, string requestId, IDictionary<string, string> properties = null)
-        {
-            if (exception == null) throw new ArgumentNullException(nameof(exception));
-            if (string.IsNullOrEmpty(requestId)) throw new ArgumentException("RequestId cannot be null or empty", nameof(requestId));
-
-            var propertiesWithRequestId = properties ?? new Dictionary<string, string>();
-            propertiesWithRequestId["RequestId"] = requestId;
-            telemetryClient.TrackException(exception, propertiesWithRequestId);
-        }
-
-        public async Task<T> RunAndTrackMetricsAsync<T>(Func<Task<T>> context, string metricName)
-        {
-            if (context == null) throw new ArgumentNullException(nameof(context));
-
-            var stopwatch = Stopwatch.StartNew();
-            try
-            {
-                return await context();
-            }
-            finally
-            {
-                stopwatch.Stop();
-                TrackMetric(metricName, stopwatch.ElapsedMilliseconds, new Dictionary<string, string>
-                {
-                    { "RequestId", correlationContext.CorrelationContext?.CorrelationId ?? "Unknown" }
-                });
-            }
-        }
-
-        public async Task RunAndTrackMetricsAsync(Func<Task> context, string metricName)
-        {
-            if (context == null) throw new ArgumentNullException(nameof(context));
-
-            var stopwatch = Stopwatch.StartNew();
-            try
-            {
-                await context();
-            }
-            finally
-            {
-                stopwatch.Stop();
-                TrackMetric(metricName, stopwatch.ElapsedMilliseconds, new Dictionary<string, string>
-                {
-                    { "RequestId", correlationContext.CorrelationContext?.CorrelationId ?? "Unknown" }
-                });
-            }
-        }
+    public void TrackException(Exception exception, IDictionary<string, string> properties = null, IDictionary<string, double> metrices = null)
+    {
+        _telemetryClient.TrackException(exception, properties, metrices);
     }
 }
 ```
 
+<hr/>
+
+## 2. Create Telemetry Service
+
+### ITelemetryService
+```cs
+public interface ITelemetryService
+{
+    void TrackEvent(string name, IDictionary<string, string>? properties = null);
+    void TrackMetric(string name, double value, IDictionary<string, string>? properties = null);
+    Task<T> RunAndTrackMetricsAsync<T>(Func<Task<T>> context, MetricName metricName);
+    Task RunAndTrackMetricsAsync(Func<Task> context, MetricName metricName);
+    string TrackDependency(
+        string name,
+        TimeSpan duration,
+        bool success,
+        string target = null,
+        string dependencyType = DependencyType.Http,
+        string parentId = null,
+        string operationId = null);
+    void TrackException(Exception exception, string requestId, IDictionary<string, string>? properties = null);
+}
+```
+
+### Metric Names
+```cs
+    public enum MetricName
+    {
+        TOTAL_REQUEST_TIME,
+        TOTAL_DATABASE_TIME,
+    }
+```
+
 ### Dependency Types Azure Supports
 ```cs
-namespace parinaybharat.api.application.Helpers.Telemetry
-{
     public static class DependencyType
     {
         public const string SQL = "SQL";
-        public const string HTTP = "HTTP";
+        public const string HTTP = "Http";
         public const string AzureBlob = "Azure Blob";
         public const string AzureTable = "Azure Table";
         public const string AzureQueue = "Azure Queue";
@@ -191,8 +115,123 @@ namespace parinaybharat.api.application.Helpers.Telemetry
         public const string AJAX = "AJAX";
         public const string Other = "Other";
     }
+```
+
+### TelemetryService
+```cs
+public class TelemetryService : ITelemetryService
+{
+    private readonly IConfiguration configuration;
+    private readonly ITelemetryClient telemetryClient;
+    private readonly ICorrelationContextAccessor correlationContext;
+
+    public TelemetryService(ITelemetryClient telemetryClient, ICorrelationContextAccessor correlationContext, IConfiguration configuration)
+    {
+        this.telemetryClient = telemetryClient ?? throw new ArgumentNullException(nameof(telemetryClient));
+        this.correlationContext = correlationContext ?? throw new ArgumentNullException(nameof(correlationContext));
+        this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+    }
+
+    public void TrackEvent(string name, IDictionary<string, string>? properties = null)
+    {
+        var appName = configuration["AppName"];
+        if (string.IsNullOrEmpty(appName))
+        {
+            throw new InvalidOperationException("AppName is not configured.");
+        }
+
+        properties ??= new Dictionary<string, string>();
+        properties["AppName"] = appName;
+        telemetryClient.TrackEvent(name, properties);
+    }
+
+
+    public void TrackMetric(string name, double value, IDictionary<string, string>? properties = null)
+    {
+        telemetryClient.TrackMetric(name, value, properties ?? new Dictionary<string, string>());
+    }
+
+    public string TrackDependency(
+        string name,
+        TimeSpan duration,
+        bool success,
+        string? target = null,
+        string dependencyType = DependencyType.Http,
+        string? parentId = null,
+        string? operationId = null)
+    {
+        var dependencyTelemetry = new DependencyTelemetry
+        {
+            Name = name,
+            Type = dependencyType.ToString(),
+            Target = target ?? "Unknown",
+            Data = "Dependency call",
+            Duration = duration,
+            Success = success,
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        if (!string.IsNullOrEmpty(parentId))
+            dependencyTelemetry.Context.Operation.ParentId = parentId;
+        if (!string.IsNullOrEmpty(operationId))
+            dependencyTelemetry.Context.Operation.Id = operationId;
+
+        telemetryClient.TrackDependency(dependencyTelemetry);
+        return dependencyTelemetry.Id;
+    }
+
+    public void TrackException(Exception exception, string requestId, IDictionary<string, string>? properties = null)
+    {
+        if (exception == null) throw new ArgumentNullException(nameof(exception));
+        if (string.IsNullOrEmpty(requestId)) throw new ArgumentException("RequestId cannot be null or empty", nameof(requestId));
+
+        var propertiesWithRequestId = properties ?? new Dictionary<string, string>();
+        propertiesWithRequestId["RequestId"] = requestId;
+        telemetryClient.TrackException(exception, propertiesWithRequestId);
+    }
+
+    public async Task<T> RunAndTrackMetricsAsync<T>(Func<Task<T>> context, MetricName metricName)
+    {
+        if (context == null) throw new ArgumentNullException(nameof(context));
+
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            return await context();
+        }
+        finally
+        {
+            stopwatch.Stop();
+            TrackMetric(metricName.ToString(), stopwatch.ElapsedMilliseconds, new Dictionary<string, string>
+            {
+                { "RequestId", correlationContext.CorrelationContext?.CorrelationId ?? "Unknown" }
+            });
+        }
+    }
+
+    public async Task RunAndTrackMetricsAsync(Func<Task> context, MetricName metricName)
+    {
+        if (context == null) throw new ArgumentNullException(nameof(context));
+
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            await context();
+        }
+        finally
+        {
+            stopwatch.Stop();
+            TrackMetric(metricName.ToString(), stopwatch.ElapsedMilliseconds, new Dictionary<string, string>
+            {
+                { "RequestId", correlationContext.CorrelationContext?.CorrelationId ?? "Unknown" }
+            });
+        }
+    }
 }
 ```
+
+<hr/>
+
 
 ## Sample Usage
 
@@ -225,40 +264,38 @@ namespace parinaybharat.api.presentation.Middlewares
 
             try
             {
-                // HTTP dependency example
-                var dependencyDuration = TimeSpan.FromMilliseconds(new Random().Next(50, 200));
-                bool dependencySuccess = new Random().Next(0, 10) > 2;
-
-
-                // First dependency
+                // First dependency example
                 var firstDependencyDuration = TimeSpan.FromMilliseconds(new Random().Next(50, 200));
-                parentDependencyId = _telemetryService.TrackChainedDependency("ForgerockAuthResolution",
-                                                                              firstDependencyDuration,
-                                                                              success: true,
-                                                                              target: "Forgerock Introspection",
-                                                                              dependencyType: DependencyType.HTTP,
-                                                                              "API Flow");
+                parentDependencyId = _telemetryService.TrackDependency(
+                    "ForgerockAuthResolution",
+                    firstDependencyDuration,
+                    success: true,
+                    target: "Forgerock Introspection",
+                    dependencyType: DependencyType.Http,
+                    parentId: null,
+                    operationId: "API Flow");
 
                 // Second dependency in chain, using the first's ID as parent
                 var secondDependencyDuration = firstDependencyDuration.Add(TimeSpan.FromMilliseconds(20));
-                parentDependencyId = _telemetryService.TrackChainedDependency("ManagedInstanceQuery",
-                                                                              secondDependencyDuration,
-                                                                              success: false,
-                                                                              target: "SQL Database",
-                                                                              dependencyType: DependencyType.SQL,
-                                                                              parentId: parentDependencyId,
-                                                                              "API Flow");
+                parentDependencyId = _telemetryService.TrackDependency(
+                    "ManagedInstanceQuery",
+                    secondDependencyDuration,
+                    success: false,
+                    target: "SQL Database",
+                    dependencyType: DependencyType.Sql,
+                    parentId: parentDependencyId,
+                    operationId: "API Flow");
 
                 // Third dependency in chain, using the second's ID as parent
                 var thirdDependencyDuration = secondDependencyDuration.Add(TimeSpan.FromMilliseconds(30));
-                _telemetryService.TrackChainedDependency("ExternalApiCall",
-                                                         thirdDependencyDuration,
-                                                         success: true,
-                                                         target: "External Service",
-                                                         dependencyType: DependencyType.AzureBlob,
-                                                         parentId: parentDependencyId,
-                                                         "API Flow");
-
+                _telemetryService.TrackDependency(
+                    "ExternalApiCall",
+                    thirdDependencyDuration,
+                    success: true,
+                    target: "External Service",
+                    dependencyType: DependencyType.AzureBlob,
+                    parentId: parentDependencyId,
+                    operationId: "API Flow");
 
                 await _next(context);
 
@@ -293,108 +330,163 @@ namespace parinaybharat.api.presentation.Middlewares
         }
     }
 }
+
 ```
+
+<hr/>
 
 ## Unit Tests
 ```cs
-using Microsoft.ApplicationInsights;
-using Microsoft.ApplicationInsights.DataContracts;
-using Microsoft.Extensions.Configuration;
-using Moq;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Xunit;
-using CorrelationId.Abstractions;
-
-namespace UnitTests.Helpers.Telemetry
+public class TelemetryServiceTests
 {
-    public class TelemetryServiceTests
+    private readonly Mock<ITelemetryClient> _mockTelemetryClient;
+    private readonly Mock<ICorrelationContextAccessor> _mockCorrelationContextAccessor;
+    private readonly Mock<IConfiguration> _mockConfiguration;
+    private readonly TelemetryService _telemetryService;
+
+    public TelemetryServiceTests()
     {
-        private readonly Mock<TelemetryClient> telemetryClientMock = new();
-        private readonly Mock<ICorrelationContextAccessor> correlationContextMock = new();
-        private readonly Mock<IConfiguration> configurationMock = new();
-        private readonly TelemetryService telemetryService;
+        _mockTelemetryClient = new Mock<ITelemetryClient>();
+        _mockCorrelationContextAccessor = new Mock<ICorrelationContextAccessor>();
+        _mockConfiguration = new Mock<IConfiguration>();
 
-        public TelemetryServiceTests()
-        {
-            configurationMock.Setup(c => c["AppName"]).Returns("TestApp");
-            correlationContextMock.Setup(c => c.CorrelationContext.CorrelationId).Returns("TestCorrelationId");
-            telemetryService = new TelemetryService(telemetryClientMock.Object, correlationContextMock.Object, configurationMock.Object);
-        }
+        _mockCorrelationContextAccessor.Setup(x => x.CorrelationContext).Returns(new CorrelationContext("test-correlation-id", "x-correlation-id"));
+        _telemetryService = new TelemetryService(_mockTelemetryClient.Object, _mockCorrelationContextAccessor.Object, _mockConfiguration.Object);
+    }
 
-        [Fact]
-        public void TrackEvent_ShouldAddAppNameToProperties()
-        {
-            var properties = new Dictionary<string, string>();
-            telemetryService.TrackEvent("TestEvent", properties);
+    [Fact]
+    public void TrackEvent_ShouldThrowInvalidOperationException_WhenAppNameIsNotConfigured()
+    {
+        _mockConfiguration.Setup(config => config["AppName"]).Returns((string?)null);
+        var properties = new Dictionary<string, string>();
 
-            Assert.True(properties.ContainsKey("AppName"));
-            Assert.Equal("TestApp", properties["AppName"]);
-            telemetryClientMock.Verify(t => t.TrackEvent("TestEvent", properties), Times.Once);
-        }
+        Assert.Throws<InvalidOperationException>(() => _telemetryService.TrackEvent("test-event", properties));
+    }
 
-        [Fact]
-        public void TrackMetric_ShouldTrackMetricWithProperties()
-        {
-            telemetryService.TrackMetric("TestMetric", 1.0, null);
+    [Fact]
+    public void TrackEvent_ShouldTrackEvent_WhenAppNameIsConfigured()
+    {
+        // Arrange
+        _mockConfiguration.Setup(config => config["AppName"]).Returns("MyApp");
+        var properties = new Dictionary<string, string>();
 
-            telemetryClientMock.Verify(t => t.TrackMetric("TestMetric", 1.0, It.IsAny<IDictionary<string, string>>()), Times.Once);
-        }
+        // Act
+        _telemetryService.TrackEvent("test-event", properties);
 
-        [Fact]
-        public void TrackChainedDependency_ShouldSetDependencyProperties()
-        {
-            var dependencyId = telemetryService.TrackChainedDependency("TestDependency", TimeSpan.FromSeconds(1), true);
+        // Add the expected AppName to the properties
+        properties["AppName"] = "MyApp";
 
-            telemetryClientMock.Verify(t => t.TrackDependency(It.Is<DependencyTelemetry>(d => d.Name == "TestDependency" && d.Success == true)));
-            Assert.NotNull(dependencyId);
-        }
+        // Assert
+        _mockTelemetryClient.Verify(client => client.TrackEvent(
+            "test-event",
+            It.Is<IDictionary<string, string>>(dict => dict.ContainsKey("AppName") && dict["AppName"] == "MyApp"),
+            null),
+            Times.Once);
+    }
 
-        [Fact]
-        public void TrackException_ShouldTrackExceptionWithProperties()
-        {
-            var properties = new Dictionary<string, string>();
-            telemetryService.TrackException(new Exception("TestException"), "TestRequestId", properties);
+    [Fact]
+    public void TrackMetric_ShouldTrackMetric_WhenCalled()
+    {
+        var properties = new Dictionary<string, string> { { "key", "value" } };
 
-            Assert.True(properties.ContainsKey("RequestId"));
-            Assert.Equal("TestRequestId", properties["RequestId"]);
-            telemetryClientMock.Verify(t => t.TrackException(It.IsAny<Exception>(), properties), Times.Once);
-        }
+        _telemetryService.TrackMetric("test-metric", 123.45, properties);
 
-        [Fact]
-        public async Task RunAndTrackMetricsAsync_T_ShouldTrackMetric()
-        {
-            await telemetryService.RunAndTrackMetricsAsync(async () => { await Task.Delay(1); return 1; }, "TestMetric");
+        _mockTelemetryClient.Verify(client => client.TrackMetric("test-metric", 123.45, It.IsAny<IDictionary<string, string>>()), Times.Once);
+    }
 
-            telemetryClientMock.Verify(t => t.TrackMetric("TestMetric", It.IsAny<double>(), It.IsAny<IDictionary<string, string>>()), Times.Once);
-        }
+    [Fact]
+    public void TrackDependency_ShouldTrackDependency_WithCorrectTelemetry()
+    {
+        // Arrange
+        var duration = TimeSpan.FromMilliseconds(100);
+        var dependencyName = "dependency";
+        var dependencyType = "SQL";
+        var target = "target-system";
+        var parentId = "parent-id";
+        var operationId = "operation-id";
 
-        [Fact]
-        public async Task RunAndTrackMetricsAsync_ShouldTrackMetric()
-        {
-            await telemetryService.RunAndTrackMetricsAsync(async () => await Task.Delay(1), "TestMetric");
+        // Act
+        var telemetryId = _telemetryService.TrackDependency(dependencyName, duration, true, target, dependencyType, parentId, operationId);
 
-            telemetryClientMock.Verify(t => t.TrackMetric("TestMetric", It.IsAny<double>(), It.IsAny<IDictionary<string, string>>()), Times.Once);
-        }
+        // Assert
+        _mockTelemetryClient.Verify(client => client.TrackDependency(It.Is<DependencyTelemetry>(dep =>
+            dep.Name == dependencyName &&
+            dep.Type == dependencyType &&
+            dep.Target == target &&
+            dep.Duration == duration &&
+            dep.Success == true &&
+            dep.Context.Operation.ParentId == parentId &&
+            dep.Context.Operation.Id == operationId)), Times.Once);
 
-        [Fact]
-        public void Constructor_ShouldThrowArgumentNullException_WhenTelemetryClientIsNull()
-        {
-            Assert.Throws<ArgumentNullException>(() => new TelemetryService(null, correlationContextMock.Object, configurationMock.Object));
-        }
+        // Assert that a telemetry ID was generated
+        Assert.NotNull(telemetryId);
+    }
 
-        [Fact]
-        public void Constructor_ShouldThrowArgumentNullException_WhenCorrelationContextIsNull()
-        {
-            Assert.Throws<ArgumentNullException>(() => new TelemetryService(telemetryClientMock.Object, null, configurationMock.Object));
-        }
 
-        [Fact]
-        public void Constructor_ShouldThrowArgumentNullException_WhenConfigurationIsNull()
-        {
-            Assert.Throws<ArgumentNullException>(() => new TelemetryService(telemetryClientMock.Object, correlationContextMock.Object, null));
-        }
+    [Fact]
+    public void TrackException_ShouldThrowArgumentNullException_WhenExceptionIsNull()
+    {
+        Assert.Throws<ArgumentNullException>(() => _telemetryService.TrackException(null, "requestId"));
+    }
+
+    [Fact]
+    public void TrackException_ShouldThrowArgumentException_WhenRequestIdIsEmpty()
+    {
+        var exception = new Exception("Test exception");
+
+        Assert.Throws<ArgumentException>(() => _telemetryService.TrackException(exception, string.Empty));
+    }
+
+    [Fact]
+    public void TrackException_ShouldTrackException_WithRequestId()
+    {
+        var exception = new Exception("Test exception");
+        var properties = new Dictionary<string, string>();
+
+        _telemetryService.TrackException(exception, "request-id", properties);
+
+        properties["RequestId"] = "request-id";
+        _mockTelemetryClient.Verify(client => client.TrackException(exception, It.IsAny<IDictionary<string, string>>(), null), Times.Once);
+    }
+
+    [Fact]
+    public async Task RunAndTrackMetricsAsync_ShouldTrackMetric_WhenFuncTaskTCompletes()
+    {
+        var metricName = MetricName.TOTAL_DATABASE_TIME;
+        var result = "test-result";
+        Func<Task<string>> func = () => Task.FromResult(result);
+
+        var returnValue = await _telemetryService.RunAndTrackMetricsAsync(func, metricName);
+
+        Assert.Equal(result, returnValue);
+        _mockTelemetryClient.Verify(client => client.TrackMetric(metricName.ToString(), It.IsAny<double>(), It.Is<Dictionary<string, string>>(dict =>
+            dict.ContainsKey("RequestId") && dict["RequestId"] == "test-correlation-id")), Times.Once);
+    }
+
+    [Fact]
+    public async Task RunAndTrackMetricsAsync_ShouldTrackMetric_WhenFuncTaskCompletes()
+    {
+        var metricName = MetricName.TOTAL_DATABASE_TIME;
+        Func<Task> func = () => Task.CompletedTask;
+
+        await _telemetryService.RunAndTrackMetricsAsync(func, metricName);
+
+        _mockTelemetryClient.Verify(client => client.TrackMetric(metricName.ToString(), It.IsAny<double>(), It.Is<Dictionary<string, string>>(dict =>
+            dict.ContainsKey("RequestId") && dict["RequestId"] == "test-correlation-id")), Times.Once);
+    }
+
+    [Fact]
+    public async Task RunAndTrackMetricsAsync_ShouldThrowArgumentNullException_WhenFuncTaskTIsNull()
+    {
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
+            await _telemetryService.RunAndTrackMetricsAsync<string>(null!, MetricName.TOTAL_DATABASE_TIME));
+    }
+
+    [Fact]
+    public async Task RunAndTrackMetricsAsync_ShouldThrowArgumentNullException_WhenFuncTaskIsNull()
+    {
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
+            await _telemetryService.RunAndTrackMetricsAsync(null!, MetricName.TOTAL_DATABASE_TIME));
     }
 }
 ```
