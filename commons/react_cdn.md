@@ -4,25 +4,6 @@
 
 ## Set Storage account name and key in GitHub secrets
 
-## Register `error.html` as fallback and place in `$web` root directory
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fallback</title>
-</head>
-<body>
-  <script type="text/javascript">
-    // Redirect to the main page with the original URL as a query parameter
-    var originalUrl = encodeURIComponent(window.location.pathname + window.location.search);
-    window.location = "/?referrer=" + originalUrl;
-  </script>
-</body>
-</html>
-```
-
 ## Modify `App.js` to handle redirect properly by looking at `referer`
 ```jsx
 import './App.css';
@@ -107,8 +88,28 @@ jobs:
     - name: Install Dependencies
       run: npm ci
 
+    - name: Set Environment Variables
+      run: cp .env.production .env
+
     - name: Build
       run: npm run build
+
+    - name: Add error.html to dist
+      run: echo "<!DOCTYPE html>
+          <html lang=\"en\">
+          <head>
+            <meta charset=\"UTF-8\">
+            <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+            <title>Fallback</title>
+          </head>
+          <body>
+            <script type=\"text/javascript\">
+              // Redirect to the main page with the original URL as a query parameter
+              var originalUrl = encodeURIComponent(window.location.pathname + window.location.search);
+              window.location = \"/?referrer=\" + originalUrl;
+            </script>
+          </body>
+          </html>" > dist/error.html
 
     - name: Deploy to Azure Blob Storage
       run: |
@@ -117,5 +118,6 @@ jobs:
           --destination "\$web" \
           --account-name ${{ secrets.AZURE_STORAGE_ACCOUNT_NAME }} \
           --account-key ${{ secrets.AZURE_STORAGE_ACCOUNT_KEY }} \
-          --auth-mode key
+          --auth-mode key \
+          --overwrite
 ```
