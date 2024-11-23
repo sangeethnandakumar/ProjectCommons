@@ -50,7 +50,7 @@ static void CreateSharedDirectories()
 }
 ```
 
-# YML - Docker Build + Deploy + Run
+# YML - Docker API Deployment
 ```yml
 name: Build & Deploy Docker Container
 
@@ -268,4 +268,69 @@ jobs:
           key: ${{ env.SERVER_SSH }}
           script: sudo systemctl start nginx
 
+```
+
+## YML - Azure CDN - React SPA Deployment
+```yaml
+name: Build and Deploy to Azure Storage
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '23.3.0'
+        cache: 'npm'
+
+    - name: Cache Azure CLI
+      id: cache-azure-cli
+      uses: actions/cache@v3
+      with:
+        path: ~/.azure
+        key: ${{ runner.os }}-azure-cli-${{ hashFiles('~/.azure/commandIndex.json') }}
+        restore-keys: |
+          ${{ runner.os }}-azure-cli-
+
+    - name: Cache node modules
+      id: cache-npm
+      uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
+    - name: Install Azure CLI
+      if: steps.cache-azure-cli.outputs.cache-hit != 'true'
+      run: |
+        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+    - name: Install Dependencies
+      run: npm ci
+
+    - name: Set Environment Variables
+      run: cp .env.production .env
+
+    - name: Build
+      run: npm run build
+
+    - name: Deploy to Azure Blob Storage
+      run: |
+        az storage blob upload-batch \
+          --source dist \
+          --destination "\$web" \
+          --account-name ${{ secrets.AZURE_STORAGE_ACCOUNT_NAME }} \
+          --account-key ${{ secrets.AZURE_STORAGE_ACCOUNT_KEY }} \
+          --auth-mode key
 ```
