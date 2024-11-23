@@ -1,7 +1,7 @@
 ## Step 1
 Create `Dockerfile.prod`
 ```dockerfile
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine AS base
 EXPOSE 8080
 FROM base AS final
 WORKDIR /app
@@ -62,24 +62,31 @@ on:
 
 env:
   # Docker Config  
-  IMAGE_NAME           : 'epubai.twileloop.com'
-  NGINX_DOMAIN         : 'epubai.twileloop.com'
-  SERVER_PORT          : 5004
-  DOCKER_FILE_LOCATION : './Instaread.EpubAi.Server' 
-  PROJECT_PATH         : './Instaread.EpubAi.Server/Instaread.EpubAi.Server.csproj'
-  HOST_VOLUME_PATH     : '/docker_volumes/epubai.twileloop.com'
-  DOCKER_ENVS: > 
-    APIKeys_Gemini=${{ secrets.APIKEY_GEMINI }}
-    APIKeys_MidJourney=${{ secrets.APIKEY_MIDJOURNEY }}
-   
+  IMAGE_NAME           : 'api.parinaybharat'
+  NGINX_DOMAIN         : 'api.parinaybharat.twileloop.com'
+  SERVER_PORT          : 6000
+  DOCKER_FILE_LOCATION : './parinaybharat.api' 
+  PROJECT_PATH         : './parinaybharat.api/parinaybharat.api.csproj'
+  HOST_VOLUME_PATH     : '/docker_volumes/api.parinaybharat.twileloop.com'
+  
   # Dotnet Config
-  DOTNET_VERSION       : '8.0.101'
+  DOTNET_VERSION       : '9.0.100'
   CONTAINER_PORT       : 8080
   
   # Linux Config  
-  SERVER_HOST: 'twileloop.com'
-  SERVER_USERNAME: 'root'  
-  SERVER_SSH: ${{ secrets.DEPLOY_KEY }}
+  SERVER_HOST          : 'twileloop.com'
+  SERVER_USERNAME      : 'root'  
+  SERVER_SSH           : ${{ secrets.DEPLOY_KEY }}
+
+  # List of Docker environment variables
+  DOCKER_ENVS: |
+    ApplicationInsights__ConnectionString=${{ secrets.CON_APP_INSIGHTS }}
+    KeyVault__TenantId=${{ secrets.KVLT_TENANT_ID }}
+    KeyVault__ClientId=${{ secrets.KVLT_CLIENT_ID }}
+    KeyVault__ClientSecret=${{ secrets.KVLT_CLIENT_SECRET }}
+    KeyVault__VaultUri=${{ secrets.KVLT_VAULT_URI }}
+    KeyVault__CacheExpirationMinutes=${{ secrets.KVLT_CACHE_EXPIRATION }}
+
 
 jobs:
   build:
@@ -130,16 +137,19 @@ jobs:
       - name: Save Docker Image
         run: docker save ${{ env.IMAGE_NAME }} | gzip > ${{ env.IMAGE_NAME }}.tar.gz
 
-      - name: Copy Docker Image to VM
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ env.SERVER_HOST }}
-          username: ${{ env.SERVER_USERNAME }}
-          key: ${{ env.SERVER_SSH }}
-          source: "./${{ env.IMAGE_NAME }}.tar.gz"
-          target: "/tmp"
+      - name: Install rsync
+        run: sudo apt-get install -y rsync
+        
+      - name: Transfer using rsync with progress
+        run: |
+          echo "${{ env.SERVER_SSH }}" > ssh_key
+          chmod 600 ssh_key
+          rsync -avz --progress -e "ssh -i ssh_key -o StrictHostKeyChecking=no" \
+            "./${{ env.IMAGE_NAME }}.tar.gz" \
+            ${{ env.SERVER_USERNAME }}@${{ env.SERVER_HOST }}:/tmp/
+          rm ssh_key
 
-      - name: Ensure host volume directory exists and create env file
+      - name: Create Host-Volume Directory + Env file
         uses: appleboy/ssh-action@master
         with:
           host: ${{ env.SERVER_HOST }}
@@ -149,15 +159,19 @@ jobs:
             # Check if the host volume directory exists
             if [ ! -d "${{ env.HOST_VOLUME_PATH }}" ]; then
               # If it doesn't exist, create the host volume directory
-              mkdir -p ${{ env.HOST_VOLUME_PATH }}
+              mkdir -p "${{ env.HOST_VOLUME_PATH }}"
             fi
+
             # Create or replace the prod.env file
-            : > ${{ env.HOST_VOLUME_PATH }}/prod.env
-            IFS=$'\n'
-            for line in ${{ env.DOCKER_ENVS }}
-            do
-              echo $line >> ${{ env.HOST_VOLUME_PATH }}/prod.env
+            : > "${{ env.HOST_VOLUME_PATH }}/prod.env"
+
+            # Split the DOCKER_ENVS string into individual variables using newline as delimiter
+            echo "${{ env.DOCKER_ENVS }}" | while IFS= read -r env_var; do
+              if [ ! -z "$env_var" ]; then
+                echo "$env_var" >> "${{ env.HOST_VOLUME_PATH }}/prod.env"
+              fi
             done
+
       - name: Load and Run Docker Image on VM
         uses: appleboy/ssh-action@master
         with:
@@ -180,6 +194,7 @@ jobs:
             docker load < /tmp/${{ env.IMAGE_NAME }}.tar.gz
             # Run the Docker image with the specified port and volume mappings
             docker run -d --env-file "${{ env.HOST_VOLUME_PATH }}/prod.env" -p "${{ env.SERVER_PORT }}:${{ env.CONTAINER_PORT }}" -v "/docker_volumes/${{ env.IMAGE_NAME }}:/app/Shared" --name "${{ env.IMAGE_NAME }}" --cpus 0.5 -u $(id -u):$(id -g) "${{ env.IMAGE_NAME }}"
+            
       - name: Configure NGINX
         uses: appleboy/ssh-action@master
         with:
@@ -187,43 +202,40 @@ jobs:
           username: ${{ env.SERVER_USERNAME }}
           key: ${{ env.SERVER_SSH }}
           script: |
-            # Check if the NGINX config has changed
-            local_config_hash=$(sha256sum /etc/nginx/sites-enabled/${{ env.NGINX_DOMAIN }} 2>/dev/null || true)
-            remote_config_hash=$(ssh {{ env.SERVER_USERNAME }}@${{ env.SERVER_HOST }} "sha256sum /etc/nginx/sites-enabled/${{ env.NGINX_DOMAIN }}" 2>/dev/null || true)
-            if [ "$local_config_hash" != "$remote_config_hash" ]; then
-              # If the config has changed, create the NGINX config
-              cat << EOF > /etc/nginx/sites-enabled/${{ env.NGINX_DOMAIN }}
-              server {
-                  listen 80;
-                  server_name ${{ env.NGINX_DOMAIN }};
-                  return 301 https://\$host\$request_uri;
-              }
-      
-              server {
-                  listen 443 ssl http2;
-                  server_name ${{ env.NGINX_DOMAIN }};
+            CONFIG_PATH="/etc/nginx/sites-enabled/${{ env.NGINX_DOMAIN }}"
+            # Always write the config file
+            cat << EOF > $CONFIG_PATH
+            server {
+                listen 80;
+                server_name ${{ env.NGINX_DOMAIN }};
+                return 301 https://\$host\$request_uri;
+            }
+    
+            server {
+                listen 443 ssl http2;
+                server_name ${{ env.NGINX_DOMAIN }};
 
-                  client_max_body_size 200M;
-      
-                  location / {
-                      proxy_pass http://localhost:${{ env.SERVER_PORT }};
-                      proxy_set_header Upgrade \$http_upgrade;
-                      proxy_set_header Connection "upgrade";
-                      proxy_cache off;
-                      proxy_http_version 1.1;
-                      proxy_buffering off;
-                      proxy_read_timeout 100s;
-                      proxy_set_header Host \$host;
-                      proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-                      proxy_set_header X-Forwarded-Proto \$scheme;
-                      proxy_set_header X-Real-IP \$remote_addr;
-                  }
-      
-                  ssl_certificate /etc/letsencrypt/live/${{ env.NGINX_DOMAIN }}/fullchain.pem;
-                  ssl_certificate_key /etc/letsencrypt/live/${{ env.NGINX_DOMAIN }}/privkey.pem;
-              }
+                client_max_body_size 200M;
+    
+                location / {
+                    proxy_pass http://localhost:${{ env.SERVER_PORT }};
+                    proxy_set_header Upgrade \$http_upgrade;
+                    proxy_set_header Connection "upgrade";
+                    proxy_cache off;
+                    proxy_http_version 1.1;
+                    proxy_buffering off;
+                    proxy_read_timeout 100s;
+                    proxy_set_header Host \$host;
+                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto \$scheme;
+                    proxy_set_header X-Real-IP \$remote_addr;
+                }
+    
+                ssl_certificate /etc/letsencrypt/live/${{ env.NGINX_DOMAIN }}/fullchain.pem;
+                ssl_certificate_key /etc/letsencrypt/live/${{ env.NGINX_DOMAIN }}/privkey.pem;
+            }
             EOF
-            fi
+
 
       - name: Stop NGINX
         uses: appleboy/ssh-action@master
@@ -233,14 +245,6 @@ jobs:
           key: ${{ env.SERVER_SSH }}
           script: sudo systemctl stop nginx
 
-      - name: Kill Running Certbot Processes
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ env.SERVER_HOST }}
-          username: ${{ env.SERVER_USERNAME }}
-          key: ${{ env.SERVER_SSH }}
-          script: sudo killall certbot || true
-      
       - name: Setup SSL Certificate
         uses: appleboy/ssh-action@master
         with:
@@ -248,12 +252,14 @@ jobs:
           username: ${{ env.SERVER_USERNAME }}
           key: ${{ env.SERVER_SSH }}
           script: |
-            # Check if the SSL certificate is still valid
+            # Check if there is an SSL certificate for the domain
             if ! sudo certbot certificates | grep -B1 -A2 ${{ env.NGINX_DOMAIN }} | grep -q "VALID"; then
-              # If it's not valid, create or renew the SSL certificate
+              # If not, generate a new SSL certificate
               sudo certbot certonly --standalone -d ${{ env.NGINX_DOMAIN }} --non-interactive --agree-tos --email your-email@example.com --http-01-port=80
+            else
+              echo "SSL certificate for ${{ env.NGINX_DOMAIN }} already exists and is valid."
             fi
-      
+
       - name: Start NGINX
         uses: appleboy/ssh-action@master
         with:
@@ -261,4 +267,5 @@ jobs:
           username: ${{ env.SERVER_USERNAME }}
           key: ${{ env.SERVER_SSH }}
           script: sudo systemctl start nginx
+
 ```
