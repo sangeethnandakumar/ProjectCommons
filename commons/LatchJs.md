@@ -89,8 +89,9 @@ import Footer from './components/footer/Footer';
 import BarLoader from 'react-spinners/BarLoader';
 import Latch from '../src/helpers/Latch';
 
-// Initialize Latch with your API URL
+// --------------------------------------------------------------------------------------------------------------------
 const latch = new Latch(import.meta.env.VITE_APP_API_URL);
+// --------------------------------------------------------------------------------------------------------------------
 
 function App() {
     const [loading, setLoading] = useState(false);
@@ -109,36 +110,38 @@ function App() {
             }, 2000);
         }
 
-        const claims = JSON.parse(localStorage.getItem('userClaims'));
-        const loggedInUserId = claims?.profileId;
-
-        if (loggedInUserId) {
-            latch.setUserId(loggedInUserId);
-        }
-
-        // Listeners for different notifications
-        const listenForChatNotifications = (notification) => {
-            console.log(`%c[Chat] ${notification.senderName}: ${notification.message}`, 'color: blue; font-weight: bold;');
-        };
-
-        const listenForGeneralNotifications = (notification) => {
-            console.log(`%c[General] ${notification.message}`, 'color: green; font-weight: bold;');
-        };
-
-        const listenForProgressNotifications = (notification) => {
-            console.log(`%c[Progress] ${notification.title} - ${notification.subtitle}: ${notification.progress}%`, 'color: orange; font-weight: bold;');
-        };
-
-        // Attach listeners
-        latch.on("LiveChatNotification", listenForChatNotifications);
-        latch.on("GeneralNotification", listenForGeneralNotifications);
-        latch.on("ProgressNotification", listenForProgressNotifications);
-
-        return () => {
-            latch.off("LiveChatNotification", listenForChatNotifications);
-            latch.off("GeneralNotification", listenForGeneralNotifications);
-            latch.off("ProgressNotification", listenForProgressNotifications);
-        };
+        // --------------------------------------------------------------------------------------------------------------------
+                const claims = JSON.parse(localStorage.getItem('userClaims'));
+                const loggedInUserId = claims?.profileId;
+        
+                if (loggedInUserId) {
+                    latch.setUserId(loggedInUserId);
+                }
+        
+                // Listeners for different notifications
+                const listenForChatNotifications = (notification) => {
+                    console.log(`%c[Chat] ${notification.senderName}: ${notification.message}`, 'color: blue; font-weight: bold;');
+                };
+        
+                const listenForGeneralNotifications = (notification) => {
+                    console.log(`%c[General] ${notification.message}`, 'color: green; font-weight: bold;');
+                };
+        
+                const listenForProgressNotifications = (notification) => {
+                    console.log(`%c[Progress] ${notification.title} - ${notification.subtitle}: ${notification.progress}%`, 'color: orange; font-weight: bold;');
+                };
+        
+                // Attach listeners
+                latch.on("LiveChatNotification", listenForChatNotifications);
+                latch.on("GeneralNotification", listenForGeneralNotifications);
+                latch.on("ProgressNotification", listenForProgressNotifications);
+        
+                return () => {
+                    latch.off("LiveChatNotification", listenForChatNotifications);
+                    latch.off("GeneralNotification", listenForGeneralNotifications);
+                    latch.off("ProgressNotification", listenForProgressNotifications);
+                };
+        // --------------------------------------------------------------------------------------------------------------------
 
     }, [navigate]);
 
