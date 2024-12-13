@@ -1,62 +1,81 @@
 # Latch.js
 
 ```js
-//Latch.js
-//Helper js file, that connects to SignalR server and helps invoke endpoints and subscribe to events
-
+// Latch.js
 import { HubConnectionBuilder } from "@microsoft/signalr";
 
 class Latch {
-    constructor() {
+    constructor(apiUrl) {
         this.connection = null;
+        this.userId = null;
+        this.apiUrl = apiUrl;
         this.initializeConnection();
     }
 
-    //Connects to SignalR server
+    // Initialize the SignalR connection
     initializeConnection() {
         this.connection = new HubConnectionBuilder()
-            .withUrl(`${import.meta.env.VITE_APP_API_URL}/signalrhub`, { withCredentials: false })
+            .withUrl(`${this.apiUrl}/signalrhub`, { withCredentials: false })
             .withAutomaticReconnect()
             .build();
+
         this.connection.start()
-            .catch((error) => console.error(error));
+            .then(() => {
+                console.log("Connected to SignalR server");
+                // Register the user each time the connection starts
+                if (this.userId) {
+                    this.registerUser(this.userId);
+                }
+            })
+            .catch((error) => console.error("SignalR Connection Error: ", error));
     }
 
-    //Subscribe to notifications with a callback
+    // Method to set the user ID and register it with the server
+    setUserId(userId) {
+        this.userId = userId;
+        // Register the user if the connection is already started
+        if (this.connection?.state === "Connected") {
+            this.registerUser(userId);
+        }
+    }
+
+    // Method to register the user with the server
+    registerUser(userId) {
+        this.connection.invoke("RegisterUser", userId)
+            .catch(err => console.error("Error registering user:", err));
+    }
+
+    // Subscribe to notifications with a callback
     on(component, methodName, callback) {
         this.connection.on(`${component}_${methodName}`, callback);
     }
 
-    //Unsubscribe to a lister
+    // Unsubscribe from a listener
     off(component, methodName, callback) {
         this.connection.off(`${component}_${methodName}`, callback);
     }
 
-    //Invoking modes custom
-    invoke(component, methodName, ...args) {
-        this.connection.invoke(`${component}_${methodName}`, ...args);
+    // Send a message (unicast) to the server with the user's connection ID
+    unicast(userId, component, methodName, ...args) {
+        this.connection.invoke("UnicastAsync", userId, `${component}_${methodName}`, ...args)
+            .catch(err => console.error("Error sending unicast message:", err));
     }
 
-    //Invoking modes unicast
-    unicast(component, methodName, ...args) {
-        const connectionId = this.connection.connectionId;
-        this.connection.invoke("UnicastAsync", connectionId, `${component}_${methodName}`, ...args);
+    // Invoking multicast
+    multicast(userIds, component, methodName, ...args) {
+        this.connection.invoke("MulticastAsync", userIds, `${component}_${methodName}`, ...args)
+            .catch(err => console.error("Error sending multicast message:", err));
     }
 
-    //Invoking modes multicast
-    multicast(connectionIds, component, methodName, ...args) {
-        this.connection.invoke("MulticastAsync", connectionIds, `${component}_${methodName}`, ...args);
-    }
-
-    //Invoking modes broadcast
+    // Broadcast to all clients
     broadcast(component, methodName, ...args) {
-        this.connection.invoke("BroadcastAsync", `${component}_${methodName}`, ...args);
+        this.connection.invoke("BroadcastAsync", component, methodName, ...args)
+            .catch(err => console.error("Error sending broadcast message:", err));
     }
 }
 
-const latch = new Latch();
+export default Latch;
 
-export default latch;
 ```
 
 ### Usage
@@ -67,36 +86,52 @@ export default latch;
 - Ready to use
 
 ```js
-import Latch from '../libs/latch.js';
+import './App.css';
+import { useEffect, useState } from 'react';
+import { useNavigate, Outlet } from 'react-router-dom';
+import Header from './components/header/Header';
+import Footer from './components/footer/Footer';
+import BarLoader from 'react-spinners/BarLoader';
+import Latch from '../src/helpers/Latch';
 
-const App = () => {
+// Initialize Latch with your API URL
+const latch = new Latch(import.meta.env.VITE_APP_API_URL);
+
+function App() {
 
     useEffect(() => {
 
-        //Listners
+        // Fetch user info from localStorage and set userId in Latch
+        const claims = JSON.parse(localStorage.getItem('userClaims'));
+        const loggedInUserId = claims?.profileId;
+
+        if (loggedInUserId) {
+            latch.setUserId(loggedInUserId);
+        }
+
+        // Listeners for notifications and progress
         const listenForNotifications = msg => console.log(msg);
         const listenForProgress = msg => console.log(msg);
 
-        //Attach
-        Latch.on("Dashboard", "Notifications", listenForNotifications);
-        Latch.on("Dashboard", "Progress", listenForProgress);
+        latch.on("Dashboard", "Notifications", listenForNotifications);
+        latch.on("Dashboard", "Progress", listenForProgress);
 
-        //Detach
         return () => {
-            Latch.off("Dashboard", "Notifications", listenForNotifications);
-            Latch.off("Dashboard", "Progress", listenForProgress);
+            latch.off("Dashboard", "Notifications", listenForNotifications);
+            latch.off("Dashboard", "Progress", listenForProgress);
         };
 
-    }, []);
+    }, [navigate]);
 
     return (
         <>
-            <h1>Hello</h1>
+            <MainPage />
         </>
     );
 }
 
 export default App;
+
 ```
 
 # ServerSide SignalR
@@ -170,34 +205,67 @@ app.Run();
 ### SignalRHub.cs
 ```csharp
 using Microsoft.AspNetCore.SignalR;
-using System.Text;
+using System.Collections.Concurrent;
 
-namespace Instaread.BestSellingScrapper.API.Hubs
+namespace ParinayBharat.Api.SignalR
 {
     public class SignalRHub : Hub
     {
-        //Unicast
-        public async Task UnicastAsync(string connectionId, string component, string methodName, object payload)
+        // Concurrent dictionary to map user IDs to connection IDs
+        private static ConcurrentDictionary<string, string> _userConnections = new ConcurrentDictionary<string, string>();
+
+        // Method to register a user and update the connection ID
+        public async Task RegisterUser(string userId)
         {
-            if(Clients is null)
-                return;
-            await Clients.Client(connectionId).SendAsync($"{component}_{methodName}", payload);
+            // Remove any old connection IDs associated with the user
+            if (_userConnections.ContainsKey(userId))
+            {
+                _userConnections.TryRemove(userId, out _);
+            }
+
+            // Add the new connection ID
+            _userConnections[userId] = Context.ConnectionId;
+            await Clients.Client(Context.ConnectionId).SendAsync("Registered", Context.ConnectionId);
         }
 
-        //Multicast
-        public async Task MulticastAsync(List<string> connectionIds, string component, string methodName, object payload)
+        // Method to send a message to a specific user (unicast)
+        public async Task UnicastAsync(string userId, string component, string methodName, object payload)
         {
-            if (Clients is null)
-                return;
-            await Clients.Clients(connectionIds).SendAsync($"{component}_{methodName}", payload);
+            if (_userConnections.TryGetValue(userId, out var connectionId))
+            {
+                await Clients.Client(connectionId).SendAsync($"{component}_{methodName}", payload);
+            }
         }
 
-        //Broadcast
+        // Method to send a message to multiple users (multicast)
+        public async Task MulticastAsync(List<string> userIds, string component, string methodName, object payload)
+        {
+            var connectionIds = userIds
+                .Where(userId => _userConnections.TryGetValue(userId, out _))
+                .Select(userId => _userConnections[userId])
+                .ToList();
+
+            if (connectionIds.Count > 0)
+            {
+                await Clients.Clients(connectionIds).SendAsync($"{component}_{methodName}", payload);
+            }
+        }
+
+        // Method to send a message to all connected clients (broadcast)
         public async Task BroadcastAsync(string component, string methodName, object payload)
         {
-            if (Clients is null)
-                return;
             await Clients.All.SendAsync($"{component}_{methodName}", payload);
+        }
+
+        // Clean up connection mappings when a user disconnects
+        public override async Task OnDisconnectedAsync(Exception exception)
+        {
+            var user = _userConnections.FirstOrDefault(x => x.Value == Context.ConnectionId);
+            if (user.Key != null)
+            {
+                _userConnections.TryRemove(user.Key, out _);
+            }
+            await base.OnDisconnectedAsync(exception);
         }
     }
 }
@@ -205,32 +273,51 @@ namespace Instaread.BestSellingScrapper.API.Hubs
 
 ### Usage
 ```csharp
-    [ApiController]
-    [Route("[controller]")]
-    public class HomeController : ControllerBase
+using Asp.Versioning;
+using Carter;
+using MediatR;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.SignalR;
+using ParinayBharat.Api.Application.Features.Meta.GetMetaItems;
+using ParinayBharat.Api.Domain.Constants;
+using ParinayBharat.Api.SignalR;
+
+namespace ParinayBharat.Api.Presentation.Modules
+{
+    public sealed class TestModule : CarterModule
     {
-        private readonly ILogger<HomeController> logger;
         private readonly SignalRHub hub;
 
-        public HomeController(ILogger<HomeController> logger, SignalRHub hub)
+        public TestModule(SignalRHub hub)
         {
-            this.logger = logger;
+            WithTags("Meta");
             this.hub = hub;
         }
 
-        [HttpGet]
-        [Route("Test")]
-        public async Task<IActionResult> Test()
+        public override void AddRoutes(IEndpointRouteBuilder app)
         {
-            logger.LogInformation("This is an info log");
-            await hub.BroadcastAsync("Dashboard", "Progress", new
+
+            group.MapGet("/signalr", async (int apiVersion, IMediator mediator) =>
             {
-                BooksSkipped = 10,
-                AmazonScrapped = 20,
-                LibGenScrapped = 11,
-                BooksFound = 55
-            });
-            return Ok();
+                // Send unicast message to PB-1000
+                await hub.UnicastAsync("PB-1000", "Dashboard", "Progress", new
+                {
+                    Message = $"{Guid.NewGuid()}: Hello PB-1000",
+                });
+
+                // Send unicast message to PB-1001
+                await hub.UnicastAsync("PB-1001", "Dashboard", "Progress", new
+                {
+                    Message = $"{Guid.NewGuid()}: Hello PB-1001",
+                });
+
+                return Results.Ok();
+            }).AllowAnonymous();
+
         }
     }
+}
+
 ```
