@@ -1,3 +1,9 @@
+### Topic Subscriptions
+
+![image](https://github.com/user-attachments/assets/42cd16d7-a09d-454d-aa12-42562c61f1f3)
+
+
+
 # Latch.js
 
 ```js
@@ -12,7 +18,6 @@ class Latch {
         this.initializeConnection();
     }
 
-    // Initialize the SignalR connection
     initializeConnection() {
         this.connection = new HubConnectionBuilder()
             .withUrl(`${this.apiUrl}/signalrhub`, { withCredentials: false })
@@ -22,7 +27,6 @@ class Latch {
         this.connection.start()
             .then(() => {
                 console.log("Connected to SignalR server");
-                // Register the user each time the connection starts
                 if (this.userId) {
                     this.registerUser(this.userId);
                 }
@@ -30,52 +34,43 @@ class Latch {
             .catch((error) => console.error("SignalR Connection Error: ", error));
     }
 
-    // Method to set the user ID and register it with the server
     setUserId(userId) {
         this.userId = userId;
-        // Register the user if the connection is already started
         if (this.connection?.state === "Connected") {
             this.registerUser(userId);
         }
     }
 
-    // Method to register the user with the server
     registerUser(userId) {
         this.connection.invoke("RegisterUser", userId)
             .catch(err => console.error("Error registering user:", err));
     }
 
-    // Subscribe to notifications with a callback
-    on(component, methodName, callback) {
-        this.connection.on(`${component}_${methodName}`, callback);
+    on(topic, callback) {
+        this.connection.on(topic, callback);
     }
 
-    // Unsubscribe from a listener
-    off(component, methodName, callback) {
-        this.connection.off(`${component}_${methodName}`, callback);
+    off(topic, callback) {
+        this.connection.off(topic, callback);
     }
 
-    // Send a message (unicast) to the server with the user's connection ID
-    unicast(userId, component, methodName, ...args) {
-        this.connection.invoke("UnicastAsync", userId, `${component}_${methodName}`, ...args)
+    unicast(userId, topic, ...args) {
+        this.connection.invoke("UnicastAsync", userId, topic, ...args)
             .catch(err => console.error("Error sending unicast message:", err));
     }
 
-    // Invoking multicast
-    multicast(userIds, component, methodName, ...args) {
-        this.connection.invoke("MulticastAsync", userIds, `${component}_${methodName}`, ...args)
+    multicast(userIds, topic, ...args) {
+        this.connection.invoke("MulticastAsync", userIds, topic, ...args)
             .catch(err => console.error("Error sending multicast message:", err));
     }
 
-    // Broadcast to all clients
-    broadcast(component, methodName, ...args) {
-        this.connection.invoke("BroadcastAsync", component, methodName, ...args)
+    broadcast(topic, ...args) {
+        this.connection.invoke("BroadcastAsync", topic, ...args)
             .catch(err => console.error("Error sending broadcast message:", err));
     }
 }
 
 export default Latch;
-
 ```
 
 ### Usage
@@ -98,10 +93,22 @@ import Latch from '../src/helpers/Latch';
 const latch = new Latch(import.meta.env.VITE_APP_API_URL);
 
 function App() {
+    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
 
     useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const referrerParam = urlParams.get('referrer');
 
-        // Fetch user info from localStorage and set userId in Latch
+        if (referrerParam) {
+            setLoading(true);
+            window.history.replaceState(null, '', window.location.pathname);
+            setTimeout(() => {
+                setLoading(false);
+                navigate(decodeURIComponent(referrerParam));
+            }, 2000);
+        }
+
         const claims = JSON.parse(localStorage.getItem('userClaims'));
         const loggedInUserId = claims?.profileId;
 
@@ -109,29 +116,51 @@ function App() {
             latch.setUserId(loggedInUserId);
         }
 
-        // Listeners for notifications and progress
-        const listenForNotifications = msg => console.log(msg);
-        const listenForProgress = msg => console.log(msg);
+        // Listeners for different notifications
+        const listenForChatNotifications = (notification) => {
+            console.log(`%c[Chat] ${notification.senderName}: ${notification.message}`, 'color: blue; font-weight: bold;');
+        };
 
-        latch.on("Dashboard", "Notifications", listenForNotifications);
-        latch.on("Dashboard", "Progress", listenForProgress);
+        const listenForGeneralNotifications = (notification) => {
+            console.log(`%c[General] ${notification.message}`, 'color: green; font-weight: bold;');
+        };
+
+        const listenForProgressNotifications = (notification) => {
+            console.log(`%c[Progress] ${notification.title} - ${notification.subtitle}: ${notification.progress}%`, 'color: orange; font-weight: bold;');
+        };
+
+        // Attach listeners
+        latch.on("LiveChatNotification", listenForChatNotifications);
+        latch.on("GeneralNotification", listenForGeneralNotifications);
+        latch.on("ProgressNotification", listenForProgressNotifications);
 
         return () => {
-            latch.off("Dashboard", "Notifications", listenForNotifications);
-            latch.off("Dashboard", "Progress", listenForProgress);
+            latch.off("LiveChatNotification", listenForChatNotifications);
+            latch.off("GeneralNotification", listenForGeneralNotifications);
+            latch.off("ProgressNotification", listenForProgressNotifications);
         };
 
     }, [navigate]);
 
     return (
         <>
-            <MainPage />
+            <Header />
+            <div className="container">
+                {loading ? (
+                    <center>
+                        <BarLoader />
+                        <small>Redirecting you...</small>
+                    </center>
+                ) : (
+                    <Outlet />
+                )}
+            </div>
+            <Footer />
         </>
     );
 }
 
 export default App;
-
 ```
 
 # ServerSide SignalR
@@ -211,34 +240,27 @@ namespace ParinayBharat.Api.SignalR
 {
     public class SignalRHub : Hub
     {
-        // Concurrent dictionary to map user IDs to connection IDs
         private static ConcurrentDictionary<string, string> _userConnections = new ConcurrentDictionary<string, string>();
 
-        // Method to register a user and update the connection ID
         public async Task RegisterUser(string userId)
         {
-            // Remove any old connection IDs associated with the user
             if (_userConnections.ContainsKey(userId))
             {
                 _userConnections.TryRemove(userId, out _);
             }
-
-            // Add the new connection ID
             _userConnections[userId] = Context.ConnectionId;
             await Clients.Client(Context.ConnectionId).SendAsync("Registered", Context.ConnectionId);
         }
 
-        // Method to send a message to a specific user (unicast)
-        public async Task UnicastAsync(string userId, string component, string methodName, object payload)
+        public async Task UnicastAsync(string userId, string topic, object payload)
         {
             if (_userConnections.TryGetValue(userId, out var connectionId))
             {
-                await Clients.Client(connectionId).SendAsync($"{component}_{methodName}", payload);
+                await Clients.Client(connectionId).SendAsync(topic, payload);
             }
         }
 
-        // Method to send a message to multiple users (multicast)
-        public async Task MulticastAsync(List<string> userIds, string component, string methodName, object payload)
+        public async Task MulticastAsync(List<string> userIds, string topic, object payload)
         {
             var connectionIds = userIds
                 .Where(userId => _userConnections.TryGetValue(userId, out _))
@@ -247,17 +269,15 @@ namespace ParinayBharat.Api.SignalR
 
             if (connectionIds.Count > 0)
             {
-                await Clients.Clients(connectionIds).SendAsync($"{component}_{methodName}", payload);
+                await Clients.Clients(connectionIds).SendAsync(topic, payload);
             }
         }
 
-        // Method to send a message to all connected clients (broadcast)
-        public async Task BroadcastAsync(string component, string methodName, object payload)
+        public async Task BroadcastAsync(string topic, object payload)
         {
-            await Clients.All.SendAsync($"{component}_{methodName}", payload);
+            await Clients.All.SendAsync(topic, payload);
         }
 
-        // Clean up connection mappings when a user disconnects
         public override async Task OnDisconnectedAsync(Exception exception)
         {
             var user = _userConnections.FirstOrDefault(x => x.Value == Context.ConnectionId);
@@ -267,57 +287,76 @@ namespace ParinayBharat.Api.SignalR
             }
             await base.OnDisconnectedAsync(exception);
         }
+
+        public async Task SendChatNotification(LiveChatNotification notification)
+        {
+            await UnicastAsync(notification.To, "LiveChatNotification", notification);
+        }
+
+        public async Task SendGeneralNotification(LiveGeneralNotification notification)
+        {
+            await UnicastAsync(notification.To, "GeneralNotification", notification);
+        }
+
+        public async Task SendProgressNotification(LiveProgressNotification notification)
+        {
+            await UnicastAsync(notification.To, "ProgressNotification", notification);
+        }
+    }
+
+    public class LiveChatNotification
+    {
+        public string To { get; set; }
+        public string From { get; set; }
+        public string ChatId { get; set; }
+        public string SenderName { get; set; }
+        public string Message { get; set; }
+    }
+
+    public class LiveGeneralNotification
+    {
+        public string To { get; set; }
+        public string Message { get; set; }
+    }
+
+    public class LiveProgressNotification
+    {
+        public string To { get; set; }
+        public string Title { get; set; }
+        public string Subtitle { get; set; }
+        public int Progress { get; set; }
     }
 }
 ```
 
 ### Usage
 ```csharp
-using Asp.Versioning;
-using Carter;
-using MediatR;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.SignalR;
-using ParinayBharat.Api.Application.Features.Meta.GetMetaItems;
-using ParinayBharat.Api.Domain.Constants;
-using ParinayBharat.Api.SignalR;
-
-namespace ParinayBharat.Api.Presentation.Modules
+group.MapGet("/signalr", async (int apiVersion, string toUser, IMediator mediator, SignalRHub hub) =>
 {
-    public sealed class TestModule : CarterModule
+    await hub.SendChatNotification(new LiveChatNotification
     {
-        private readonly SignalRHub hub;
+        To = toUser,
+        From = "PB-1001",
+        ChatId = "<CHAT ID>",
+        SenderName = "Gayathri",
+        Message = "Hello.."
+    });
 
-        public TestModule(SignalRHub hub)
-        {
-            WithTags("Meta");
-            this.hub = hub;
-        }
+    await hub.SendGeneralNotification(new LiveGeneralNotification
+    {
+        To = toUser,
+        Message = "Your existing plan PRIME+ will expire in next days"
+    });
 
-        public override void AddRoutes(IEndpointRouteBuilder app)
-        {
+    await hub.SendProgressNotification(new LiveProgressNotification
+    {
+        To = toUser,
+        Title = "Downloading file",
+        Subtitle = "Please wait...",
+        Progress = 83
+    });
 
-            group.MapGet("/signalr", async (int apiVersion, IMediator mediator) =>
-            {
-                // Send unicast message to PB-1000
-                await hub.UnicastAsync("PB-1000", "Dashboard", "Progress", new
-                {
-                    Message = $"{Guid.NewGuid()}: Hello PB-1000",
-                });
-
-                // Send unicast message to PB-1001
-                await hub.UnicastAsync("PB-1001", "Dashboard", "Progress", new
-                {
-                    Message = $"{Guid.NewGuid()}: Hello PB-1001",
-                });
-
-                return Results.Ok();
-            }).AllowAnonymous();
-
-        }
-    }
-}
-
+    return Results.Ok();
+})
+.AllowAnonymous();
 ```
