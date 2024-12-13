@@ -41,9 +41,21 @@ const handleResponse = (response, callbacks) => {
     } else if (response.status === 400 && onBadRequest) {
         onBadRequest(response.data);
     } else if (response.status === 401) {
-        onUnauthorized && onUnauthorized(response.data);
-    } else if (response.status === 403 && onForbid) {
-        onForbid(response.data);
+        if (onUnauthorized) {
+            onUnauthorized(response.data);
+        } else {
+            // Default behavior for unauthorized access
+            window.location.href = '/login'; // Redirect to login page
+            console.warn('Unauthorized access: Redirecting to login');
+        }
+    } else if (response.status === 403) {
+        if (onForbid) {
+            onForbid(response.data);
+        } else {
+            // Default behavior for forbidden access
+            alert('You do not have permission to perform this action.');
+            console.warn('Forbidden access: Insufficient privileges');
+        }
     } else if (onError) {
         onError(response.data);
     }
