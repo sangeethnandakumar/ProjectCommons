@@ -7,6 +7,7 @@ Contains common setup and files to enable fast prototyping of complex applicatio
 
 File | Title | Description
 --- | --- | ---
+<a href='commons/decourrupt-git.md'>Decourrupt Git</a> | Fix issues in courrupted repository | The shell script decourrupts git and syncs with remote (Changes will be lost so backup)
 <a href='commons/resiliance.md'>Polly Resiliance</a> | Polly based resiliance setup | Polly based resiliance setup
 <a href='commons/react_cdn.md'>React on Azure CDN</a> | YML Pipelines & URL Reqrites | YML Pipelines & URL Reqrites
 <a href='commons/AppInsightsMetricsAndKQL.md'>TelemetryService</a> | AppInsights Metrics And KQL | AppInsights Metrics And KQL
