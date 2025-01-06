@@ -3,7 +3,7 @@ Generics supported repository structure interface in Flutter
 
 <hr/>
 
-## abstractions.dart
+## base_repository.dart
 ```dart
 abstract class BaseRepository<T> {
   Future<void> create(T item);
