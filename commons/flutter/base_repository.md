@@ -1,7 +1,5 @@
-# ABSTRACTION INTERFACE
+# Flutter Generic Repo
 Generics supported repository structure interface in Flutter
-
-<hr/>
 
 ## base_repository.dart
 ```dart
