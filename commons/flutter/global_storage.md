@@ -1,5 +1,7 @@
 # global_storage.md
 
+Generic local Key-Value storage for Flutter apps
+
 ```dart
 import 'package:path/path.dart';
 import 'dart:convert';
