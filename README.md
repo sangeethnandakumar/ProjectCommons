@@ -9,6 +9,7 @@ Contains common setup and files to enable fast prototyping of complex applicatio
 
 File | Description
 --- | ---
+<a href='commons/flutter/flutter-init.md'>flutter-init</a> | Flutter boilerplate setup and templates
 <a href='commons/flutter/base_repository.md'>base_repository.dart</a> | Generics supported repository interface in Flutter
 <a href='commons/flutter/record_repository.md'>record_repository.dart</a> | Implementation of Generic abstraction/interface
 <a href='commons/flutter/user_model.md'>user_model.dart</a> | Models used in dart for DTO purpose
