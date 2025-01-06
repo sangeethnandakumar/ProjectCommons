@@ -1,7 +1,6 @@
 # LOCAL STORAGE BASE
-A centralised JSON document store within app domain. Couple this with repos
 
-<hr/>
+Generic local JSON Object storage for Flutter apps
 
 ## local_storage.dart
 ```dart
