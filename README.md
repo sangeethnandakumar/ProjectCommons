@@ -20,6 +20,7 @@ File | Description
 <a href='commons/flutter/local_storage.md'>local_storage.dart</a> | Generic local JSON Object storage for Flutter apps
 <a href='commons/flutter/global_storage.md'>global_storage.dart</a> | Generic local Key-Value storage for Flutter apps
 <a href='commons/flutter/api_helper.md'>api_helper.dart</a> | Centralised single point for all API calls works like Api.js
+<a href='commons/flutter/riverpod'>riverpod.dart</a> | Global state management
 
 ## Others
 
