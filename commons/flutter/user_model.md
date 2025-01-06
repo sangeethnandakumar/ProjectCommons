@@ -1,4 +1,4 @@
-# Sample Model
+# user_model.dart
 Models used in dart for DTO purpose
 
 ```dart
