@@ -5,6 +5,23 @@ Contains common setup and files to enable fast prototyping of complex applicatio
 
 # Table Of Contents
 
+## Flutter Repo Structures
+
+File | Description
+--- | ---
+<a href='commons/flutter/base_repository.md'>base_repository.dart</a> | Generics supported repository interface in Flutter
+<a href='commons/flutter/record_repository.md'>record_repository.dart</a> | Implementation of Generic abstraction/interface
+<a href='commons/flutter/user_model.md'>user_model.dart</a> | Models used in dart for DTO purpose
+
+## Flutter Helpers
+
+File | Description
+--- | ---
+<a href='commons/flutter/local_storage.md'>local_storage.dart</a> | A centralised JSON document store within app domain. Couple this with repos
+
+
+## Others
+
 File | Title | Description
 --- | --- | ---
 <a href='commons/decourrupt-git.md'>Decourrupt Git</a> | Git - Fix issues in courrupted repository |  Git - The shell script decourrupts git and syncs with remote (Changes will be lost so backup)
