@@ -1,6 +1,7 @@
 # Sample Model
+Models used in dart for DTO purpose
 
-```
+```dart
 class User {
   final String id;
   final String firstName;
