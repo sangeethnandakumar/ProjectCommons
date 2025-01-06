@@ -5,7 +5,7 @@ Contains inherited methods as well as private methods
 
 <hr/>
 
-## abstractions.dart
+## record_repository.dart
 ```dart
 import '../../models/record_model.dart';
 import '../abstractions.dart';
