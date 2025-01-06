@@ -1,5 +1,33 @@
 # Flutter Init Setup
 
+## D:\myflutter\pubspec.yaml
+With RiverPod preinstalled, update version as nessasary
+
+```yml
+name: myflutter
+description: A new Flutter project.
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  riverpod: ^2.6.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+```
+
 ## main.dart
 ```dart
 import 'package:flutter/material.dart';
