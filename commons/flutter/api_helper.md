@@ -1,4 +1,5 @@
 # api_helper.dart
+Centralised single point for all API calls works like Api.js
 
 ```dart
 import 'dart:convert';
