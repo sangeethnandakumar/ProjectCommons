@@ -17,7 +17,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  riverpod: ^2.6.1
+  flutter_riverpod: ^2.6.1
 
 dev_dependencies:
   flutter_test:
@@ -31,60 +31,40 @@ flutter:
 ## main.dart
 ```dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-void main() => runApp(const MyApp());
+//Global States
+final counterProvider = StateProvider((ref) => 1);
 
-class MyApp extends StatelessWidget {
+//Provider Wrapping
+void main() => runApp(const ProviderScope(child: MyApp()));
+
+//Consumer Widget
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'My Better App'),
-    );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() => setState(() => _counter++);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-      ),
+  Widget build(BuildContext context, WidgetRef ref) => MaterialApp(
+    home: Scaffold(
+      appBar: AppBar(title: const Text('Counter App')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('You have pushed the button this many times:'),
-            Text('$_counter', style: Theme.of(context).textTheme.headlineMedium),
+
+            //Read State
+            Text('Count: ${ref.watch(counterProvider)}', style: Theme.of(context).textTheme.headlineMedium),
+
+            ElevatedButton(
+              //Write State
+              onPressed: () => ref.read(counterProvider.notifier).state++,
+              child: const Text('Increment Counter'),
+            )
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
+    ),
+  );
 }
 ```
 
