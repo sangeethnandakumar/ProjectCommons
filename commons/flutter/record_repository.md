@@ -1,9 +1,5 @@
 # REPOSITORY IMPLEMENTATION
-Implementation of Generic abstraction/interface
-
-Contains inherited methods as well as private methods
-
-<hr/>
+Implementation of Generic abstraction/interface. Contains inherited methods as well as private methods
 
 ## record_repository.dart
 ```dart
