@@ -27,6 +27,7 @@ File | Description
 
 File | Title | Description
 --- | --- | ---
+<a href='commons/nginx-conf.md)'>NGinx Config</a> | HTTP-3 QUIC Protocol |  Simple conf for HTTP-3 QUIC H3 Support
 <a href='commons/decourrupt-git.md'>Decourrupt Git</a> | Git - Fix issues in courrupted repository |  Git - The shell script decourrupts git and syncs with remote (Changes will be lost so backup)
 <a href='commons/resiliance.md'>Polly Resiliance</a> | Polly based resiliance setup | Polly based resiliance setup
 <a href='commons/react_cdn.md'>React on Azure CDN</a> | YML Pipelines & URL Reqrites | YML Pipelines & URL Reqrites
