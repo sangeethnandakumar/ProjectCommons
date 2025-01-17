@@ -39,6 +39,12 @@ sudo apt install docker-ce docker-ce-cli containerd.io
 
 <hr/>
 
+### Portainer CE
+##### Manages containers
+```
+docker run -d --name portainer -p 127.0.0.1:3000:9000 --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce
+```
+
 ### C-Advisor
 ##### Monitors docker containers
 ```
