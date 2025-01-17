@@ -9,11 +9,11 @@ For using Tabler in React, Just setup these CDN's in index.html
     <link rel="icon" type="image/svg+xml" href="https://cdn-icons-png.flaticon.com/512/2702/2702172.png" />
 
     <!-- CSS files -->
-    <link href="https://preview.tabler.io/dist/css/tabler.min.css?1695847769" rel="stylesheet" />
-    <link href="https://preview.tabler.io/dist/css/tabler-flags.min.css?1695847769" rel="stylesheet" />
-    <link href="https://preview.tabler.io/dist/css/tabler-payments.min.css?1695847769" rel="stylesheet" />
-    <link href="https://preview.tabler.io/dist/css/tabler-vendors.min.css?1695847769" rel="stylesheet" />
-    <link href="https://preview.tabler.io/dist/css/demo.min.css?1695847769" rel="stylesheet" />
+    <link href="https://preview.tabler.io/dist/css/tabler.min.css" rel="stylesheet" />
+    <link href="https://preview.tabler.io/dist/css/tabler-flags.min.css" rel="stylesheet" />
+    <link href="https://preview.tabler.io/dist/css/tabler-payments.min.css" rel="stylesheet" />
+    <link href="https://preview.tabler.io/dist/css/tabler-vendors.min.css" rel="stylesheet" />
+    <link href="https://preview.tabler.io/dist/css/demo.min.css" rel="stylesheet" />
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>InstaRead AI EPub Processor</title>
@@ -31,11 +31,11 @@ For using Tabler in React, Just setup these CDN's in index.html
     </style>
 </head>
 <body>
-    <script src="https://preview.tabler.io/dist/js/demo-theme.min.js?1695847769"></script>
+    <script src="https://preview.tabler.io/dist/js/demo-theme.min.js"></script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-    <script src="https://preview.tabler.io/dist/js/tabler.min.js?1695847769" defer></script>
-    <script src="https://preview.tabler.io/dist/js/demo.min.js?1695847769" defer></script>
+    <script src="https://preview.tabler.io/dist/js/tabler.min.js" defer></script>
+    <script src="https://preview.tabler.io/dist/js/demo.min.js" defer></script>
 </body>
 </html>
 ```
