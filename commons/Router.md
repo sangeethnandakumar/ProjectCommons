@@ -110,6 +110,8 @@ function Menu() {
 export default Menu;
 ```
 
+![image](https://github.com/user-attachments/assets/0335dc86-d53e-4948-9cad-b280f1378bd2)
+
 ## CDN Redirects
 Using error.html
 ```html
