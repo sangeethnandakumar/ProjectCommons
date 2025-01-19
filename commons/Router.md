@@ -66,22 +66,3 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </React.StrictMode>,
 )
 ```
-
-### Router.jsx
-Add different routes
-```jsx
-import { Route, Routes } from 'react-router-dom';
-import Dashboard from './Dashboard';
-
-function Router() {
-
-    return (
-        <Routes>
-            <Route path="/home" element={<Dashboard />} />
-            <Route path="*" element={<h1>Not Found</h1>} />
-        </Routes>
-    )
-}
-
-export default Router
-```
