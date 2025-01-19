@@ -34,20 +34,38 @@ import Program from './pages/program';
 import Devices from './pages/devices';
 
 const Router = () => {
-
     return (
         <Routes>
             <Route path="" element={<App />}>
-                <Route path="browse" element={<Browse />} />
+                {/* Define the 'id' as a route parameter */}
+                <Route path="browse/:id" element={<Browse />} />
                 <Route path="devices" element={<Devices />} />
                 <Route path="eligibility" element={<Eligibility />} />
                 <Route path="program" element={<Program />} />
             </Route>
         </Routes>
-    )
-}
+    );
+};
 
 export default Router;
+```
+
+### Reading :id from <Browse/>
+using useParams()
+```jsx
+import { useParams } from 'react-router-dom';
+
+const Browse = () => {
+    const { id } = useParams();
+
+    return (
+        <div>
+            <p>Received ID: {id}</p>
+        </div>
+    );
+};
+
+export default Browse;
 ```
 
 ### Outlet Usage
