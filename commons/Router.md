@@ -50,19 +50,90 @@ const Router = () => {
 export default Router;
 ```
 
-### Main.jsx
-Add BrowserRouter
+### Outlet Usage
+Using Outlet's
 ```jsx
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
-import Router from './Router.jsx'
+import Footer from "../precomps/footer";
+import { Outlet } from 'react-router-dom';
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-    <React.StrictMode>
-        <BrowserRouter>
-            <Router />
-        </BrowserRouter>
-    </React.StrictMode>,
-)
+const Content = () => {
+    return (
+        <div className="page-wrapper">
+            <Outlet />
+            <Footer/>
+        </div>
+    );
+}
+
+export default Content;
+```
+
+### Using Links
+For Routing
+```jsx
+import { Link } from 'react-router-dom';
+
+function Menu() {
+
+    return (
+        <div className="navbar-nav mainmenu">
+            <ul>
+                <li>
+                    <Link to="/home">Home</Link>
+                </li>
+                <li>
+                    <Link to="/browse">Browse</Link>
+                </li>
+            </ul>
+        </div>
+    );
+}
+
+export default Menu;
+```
+
+### Programic Navigation
+Using Navigatior
+```jsx
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+// Function to get the 'referrer' parameter from the URL
+const getReferrerParam = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('referrer');
+};
+
+// Function to clean up the URL by removing query parameters
+const cleanUpUrl = () => {
+    window.history.replaceState(null, '', window.location.pathname);
+};
+
+// Function to navigate to the decoded referrer URL after a delay
+const navigateToReferrer = (navigate, referrerParam) => {
+    setTimeout(() => {
+        navigate(decodeURIComponent(referrerParam));
+    }, 2000);
+};
+
+function App() {
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const referrerParam = getReferrerParam(); // Get referrer parameter from URL
+        if (referrerParam) {
+            cleanUpUrl(); // Remove query parameters from the URL
+            navigateToReferrer(navigate, referrerParam); // Navigate to the referrer URL
+        }
+    }, [navigate]);
+
+    return (
+        <>
+            <h1>Programic Navigator Usage Example</h1>
+        </>
+    );
+}
+
+export default App;
+
 ```
