@@ -110,7 +110,28 @@ function Menu() {
 export default Menu;
 ```
 
-### Programic Navigation
+## CDN Redirects
+Using error.html
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fallback</title>
+</head>
+<body>
+    <script type="text/javascript">
+        // Redirect to the main page with the original URL as a query parameter
+        var originalUrl = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location = "/?referrer=" + originalUrl;
+    </script>
+</body>
+</html>
+```
+
+
+### Capyuring CDN Redirects & Programic Navigation
 Using Navigatior
 ```jsx
 import { useEffect } from 'react';
