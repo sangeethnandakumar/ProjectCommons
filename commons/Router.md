@@ -2,13 +2,13 @@
 
 ### Package.json
 Install React router DOM
-```
+```bash
 npm install react-router-dom
 ```
 
 ### main.jsx
 Provider
-```
+```jsx
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
