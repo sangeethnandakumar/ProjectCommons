@@ -26,65 +26,23 @@ createRoot(document.getElementById('root')).render(
 ### Router.jsx
 Replace for router
 ```jsx
-import { Route, Routes, Navigate } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
+import App from './App';
+import Browse from './pages/browse';
+import Eligibility from './pages/eligibility';
+import Program from './pages/program';
+import Devices from './pages/devices';
 
 const Router = () => {
 
     return (
         <Routes>
             <Route path="" element={<App />}>
-
-                <Route path="new" element={<NewRegistrationPage />}>
-                    <Route path="basic" element={<SearchPage />} />
-                    <Route path="education" element={<SearchPage />} />
-                    <Route path="employment" element={<SearchPage />} />
-                    <Route path="family" element={<SearchPage />} />
-                    <Route path="profession" element={<SearchPage />} />
-                    <Route path="prime" element={<SearchPage />} />
-                </Route>
-
-                <Route path="home" element={<HomePage />}>
-                </Route>
-
-                <Route path="search" element={<SearchPage />}>
-                    <Route path="new" element={<SearchPage />}/>
-                    {/*<Route path="matching" element={<SearchPage />}/>*/}
-                    {/*<Route path="otherstates" element={<SearchPage />}/>*/}
-                    {/*<Route path="education" element={<SearchPage />}/>*/}
-                    {/*<Route path="profession" element={<SearchPage />}/>*/}
-                    {/*<Route path="prime" element={<SearchPage />}/>*/}
-                </Route>
-
-                <Route path="shortlist" element={<ShortListPage />}>
-                    <Route path=":userid" element={<ProfilePage />}>
-                        <Route index element={<Navigate to="details" />} />
-                        <Route path="details" element={<PersonnelDetails />} />
-                        <Route path="contact" element={<PartnerPreference />} />
-                        <Route path="chat" element={<ChatWindow />} />
-                        <Route path="settings" element={<SettingsSubPage />} />
-                    </Route>
-                </Route>
-                <Route path="interests" element={<InterestPage />}>
-                    <Route path=":userid" element={<ProfilePage />}>
-                        <Route index element={<Navigate to="details" />} />
-                        <Route path="details" element={<PersonnelDetails />} />
-                        <Route path="contact" element={<PartnerPreference />} />
-                        <Route path="chat" element={<ChatWindow />} />
-                        <Route path="settings" element={<SettingsSubPage />} />
-                    </Route>
-                </Route>
-                <Route path="chats" element={<ChatPage />}>
-                    <Route path=":userid" element={<ChatPage />}/>
-                </Route>
-                <Route path="profiles/:userid" element={<ProfilePage />}>
-                    <Route path="details" element={<PersonnelDetails />} />
-                    <Route path="contact" element={<PartnerPreference />} />
-                    <Route path="chat" element={<ChatWindow />} />
-                    <Route path="settings" element={<SettingsSubPage />} />
-                </Route>
+                <Route path="browse" element={<Browse />} />
+                <Route path="devices" element={<Devices />} />
+                <Route path="eligibility" element={<Eligibility />} />
+                <Route path="program" element={<Program />} />
             </Route>
-            <Route path="login" element={<LoginPage />} />
-            <Route path="*" element={<h1>Not Found</h1>} />
         </Routes>
     )
 }
