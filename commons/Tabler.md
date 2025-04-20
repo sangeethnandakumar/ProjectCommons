@@ -6,7 +6,7 @@ For using Tabler in React, Just setup these CDN's in index.html
 npm install  @tabler/core
 ```
 
-## Add <head>
+## Add Public.html HEAD tag
 ```html
 <head>
     <meta charset="utf-8" />
