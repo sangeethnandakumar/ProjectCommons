@@ -50,7 +50,7 @@ File | Title | Description
 <a href='commons/Env.md'>.env</a> | .env Setup Vite React | Setting up variables in Vite React for Development and Deployment
 <a href='commons/ApiJs.md'>Api.js</a> | API Call Helper | Api.js is a plug and play API helper built using Axios in reveiling module pattern into React apps
 <a href='commons/UploadDownload.md'>Uploads & Downloads</a> | Upload and Download Endpoints | Setting up endpoints in .NET for uploading and downloading and using Api.js for uploads with progress reporting
-<a href='commons/LatchJs.md'>Latch.js</a> | SignalR Helper | Latch.js is a plug and play setup for integrating SignalR into React apps in a breeze along server config
+<a href='commons/LatchJs.md'>SignalR Unicast + MultiCast + Broadcast & Latch.js</a> | SignalR Helper | Latch.js is a plug and play setup for integrating SignalR into React apps in a breeze along server config
 <a href='commons/Cors.md'>Cors</a> | CORS Policies | Different CORS policies that can be enforced
 <a href='commons/SerilogSeq.md'>Serilog With Seq</a> | Serilog & Seq | Serilog implementation in API along with custom SignalR sink
 <a href='commons/SerilogSignalR.md'>Serilog With SignalR</a> | Serilog & SignalRSink | Serilog implementation in API along with custom SignalR sink
