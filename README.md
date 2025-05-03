@@ -5,6 +5,14 @@ Contains common setup and files to enable fast prototyping of complex applicatio
 
 # Table Of Contents
 
+## LLMs - AI & Machine Learning
+
+File | Description
+--- | ---
+<a href='docs/finetuning..md'>Fine Tuning LLM</a> | Pythin scripts to fine tune an LLM based on available CSV data
+
+<hr/>
+
 ## Flutter Repo Structures
 
 File | Description
