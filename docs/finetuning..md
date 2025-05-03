@@ -4,6 +4,11 @@
 
 > Fine Tuned Model Location - The final fine tuned model will be on `./fine_tuned_model`
 
+# Final ONNX Deployment Output via Fast API
+
+![image](https://github.com/user-attachments/assets/0be6d753-4946-4a20-af6c-b0877c27c9e3)
+
+
 <hr/>
 
 ## Fine Tuned Output Model
