@@ -2,6 +2,18 @@
 > Base Model Location - The initial model downloaded will be placed in `%USERPROFILE%\.cache\huggingface\hub`
 > Fine Tuned Model Location - The final fine tuned model will be on `./fine_tuned_model`
 
+<hr/>
+
+## Fine Tuned Output Model
+Key output files:
+- model.safetensors → Your fine-tuned model weights
+- config.json → Model architecture config
+- tokenizer.json, tokenizer_config.json, etc. → Tokenizer files
+- generation_config.json → Inference defaults (optional)
+- checkpoint-* folders → Intermediate training snapshots (can be deleted if not resuming training)
+
+<hr/>
+
 # Collect High Quality Data
 If data isn't available, The below ChatGPT prompt can be used to generate data
 ```txt
