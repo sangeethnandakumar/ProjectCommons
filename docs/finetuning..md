@@ -342,3 +342,66 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+# rest-api.py
+Now the REST API ith Swagger can run shared or non shared AI services for all apps 
+```py
+from fastapi import FastAPI, Query
+from fastapi.responses import RedirectResponse
+from transformers import AutoTokenizer
+import onnxruntime as ort
+import numpy as np
+
+app = FastAPI(title="Core AI Services API")
+
+# Redirect root to Swagger UI
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/docs")
+
+
+# Load tokenizer and ONNX session
+tokenizer = AutoTokenizer.from_pretrained("./onnx_model")
+session = ort.InferenceSession("./onnx_model/model_quantized.onnx")
+
+
+@app.get("/parse-sms")
+def parse_sms(sms: str = Query(..., description="Bank SMS text to parse")):
+    prompt = f"EXTRACT BANK SMS: {sms}"
+    enc = tokenizer(prompt, return_tensors="np", padding='max_length', truncation=True, max_length=128)
+
+    # Initialize decoder inputs
+    max_length = 64  # Adjust based on your expected output length
+    decoder_input_ids = np.array([[tokenizer.pad_token_id]], dtype=np.int64)
+
+    # Iterative decoding
+    for _ in range(max_length):
+        ort_inputs = {
+            "input_ids": enc["input_ids"],
+            "attention_mask": enc["attention_mask"],
+            "decoder_input_ids": decoder_input_ids
+        }
+
+        ort_outputs = session.run(None, ort_inputs)
+        next_token_logits = ort_outputs[0][:, -1, :]
+        next_token = np.argmax(next_token_logits, axis=-1)
+
+        # Stop if EOS token is generated
+        if next_token == tokenizer.eos_token_id:
+            break
+
+        # Append to decoder input for next iteration
+        decoder_input_ids = np.concatenate(
+            [decoder_input_ids, next_token.reshape(1, 1)], axis=-1
+        )
+
+    decoded = tokenizer.decode(decoder_input_ids[0], skip_special_tokens=True)
+    return {"parsed": decoded}
+```
+
+Run the API server
+```
+uvicorn rest-api:app --reload
+```
+
+![image](https://github.com/user-attachments/assets/cb359c71-ab09-4cb2-ae6f-04d2fa71a29e)
