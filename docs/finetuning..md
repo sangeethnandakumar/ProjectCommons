@@ -1,3 +1,7 @@
+> Base Model - The base odel used here is `google/flan-t5-small`
+> Base Model Location - The initial model downloaded will be placed in `%USERPROFILE%\.cache\huggingface\hub`
+> Fine Tuned Model Location - The final fine tuned model will be on `./fine_tuned_model`
+
 # Collect High Quality Data
 If data isn't available, The below ChatGPT prompt can be used to generate data
 ```txt
