@@ -1,5 +1,5 @@
 # Continues Leaarnings Dumpyard
-Repo to dump ideas & reusable codes through years of continues learning - Sangeeth
+My repo to dump ideas & reusable codes through years of continues learning
 
 <hr/>
 
