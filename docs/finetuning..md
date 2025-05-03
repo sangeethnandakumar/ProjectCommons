@@ -1,5 +1,7 @@
 > Base Model - The base odel used here is `google/flan-t5-small`
+
 > Base Model Location - The initial model downloaded will be placed in `%USERPROFILE%\.cache\huggingface\hub`
+
 > Fine Tuned Model Location - The final fine tuned model will be on `./fine_tuned_model`
 
 <hr/>
