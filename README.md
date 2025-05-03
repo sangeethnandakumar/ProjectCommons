@@ -1,5 +1,5 @@
-# Project Commons
-Contains common setup and files to enable fast prototyping of complex applications
+# Continues Leaarnings Dumpyard
+Repo to dump ideas & reusable codes through years of continues learning - Sangeeth
 
 <hr/>
 
