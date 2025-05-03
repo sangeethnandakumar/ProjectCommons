@@ -183,6 +183,8 @@ MAX_OUTPUT_LENGTH = 80  # Adjust based on output
 This reads data from below `verify.txt` and tries and get the result
 ![image](https://github.com/user-attachments/assets/d949729f-3980-4fe2-846b-737f47d3c549)
 
+![image](https://github.com/user-attachments/assets/4480b627-1c80-4b6b-9308-baf2402aa7fb)
+
 ```py
 import warnings
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
@@ -259,6 +261,8 @@ if __name__ == "__main__":
 
 # evaluvate-realtime.py
 This allows running realtime prompts to the model
+
+![image](https://github.com/user-attachments/assets/5e0c0ad9-e29b-4773-85ba-c45b1607fbeb)
 
 ```py
 import warnings
