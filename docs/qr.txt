@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Live QR Generator</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      box-sizing: border-box;
+      font-size: 16px;
+      padding: 10px;
+      resize: none;
+      border: none;
+      outline: none;
+    }
+    #qrcode {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas {
+      max-width: 100%;
+      max-height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <textarea id="text" placeholder="Type here...">{}</textarea>
+  <div id="qrcode"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script>
+    const qrDiv = document.getElementById('qrcode');
+    const textarea = document.getElementById('text');
+    let qr;
+
+    function updateQR(text) {
+      qrDiv.innerHTML = '';
+      try {
+        qr = new QRCode(qrDiv, {
+          text: text,
+          width: 1024,
+          height: 1024,
+          correctLevel: QRCode.CorrectLevel.H // Max error correction
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    textarea.addEventListener('input', () => {
+      updateQR(textarea.value);
+    });
+
+    updateQR(textarea.value); // initial render
+  </script>
+</body>
+</html>
