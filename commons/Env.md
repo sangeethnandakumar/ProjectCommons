@@ -26,3 +26,8 @@ Use as follows in HTML or Js files `import.meta.env.VITE_APP_API_URL`
      </div>
  </div>
 ```
+
+## Ensure UTF-8
+Ensure proper UTF8 encoding & BOM is not added
+
+<img width="757" height="222" alt="image" src="https://github.com/user-attachments/assets/89646c66-977d-4524-b328-cb1bcd60fe99" />
