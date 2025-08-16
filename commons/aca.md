@@ -1,14 +1,21 @@
 # Azure Container Apps + GitHub Container
 
-## 1. Create A Service Principal In EntraAD & Generate Secret
+## 1. Create an SP
 Note down the secret value
 
 ![image](https://github.com/user-attachments/assets/8885181a-edcf-471d-887f-93398ef01264)
 
-## 2. Setup RBAC
-Goto resource group --> IAM --> Add Role
+## 2. Resource Group IAM
+Goto resource group IAM & Add below roles
 
-![image](https://github.com/user-attachments/assets/6d9ce4de-8e2e-48c5-9106-05454bdf1bca)
+| Role                                  |
+|---------------------------------------|
+| Azure Container Instances Contributor |
+| Container Apps Contributor             |
+| Contributor                            |
+
+<img width="1722" height="352" alt="image" src="https://github.com/user-attachments/assets/48017862-d265-45ea-adcc-c85e4086dc9d" />
+
 
 ## 3. Generate GitHub PAT Token
 Generate a GitHub PAT token from Settings --> Developer Settings --> Classic Token.
@@ -36,42 +43,10 @@ ghp_XXXXXXXXXXXXXXXXXXXXXXXXX
 
 ![image](https://github.com/user-attachments/assets/b45f54d6-83cc-4b2c-b554-4d13d86b4f3f)
 
-## 6. Create containerapp.yaml
-```yaml
-properties:
-  configuration:
-    ingress:
-      external: true
-      targetPort: 8080
-      allowInsecure: false
-      traffic:
-        - latestRevision: true
-          weight: 100
-  template:
-    containers:
-      - name: billing-api
-        image: placeholder-image # Will be replaced during deployment
-        resources:
-          cpu: 0.25
-          memory: 0.5Gi
-        env:
-          - name: ASPNETCORE_ENVIRONMENT
-            value: Production
-          - name: ANOTHER_ENV
-            value: Sangeeth
-    scale:
-      minReplicas: 0
-      maxReplicas: 2
-      rules:
-        - name: http-rule
-          http:
-            metadata:
-              concurrentRequests: '10'
-```
 
-## 5. GitHub YAML
+## 5. Auto Create ACA & Full Deployment YAML
 ```yaml
-name: My Deployment of BillingAPI
+name: Deploy To Azure Container Apps
 
 on:
   push:
@@ -79,12 +54,30 @@ on:
   workflow_dispatch:
 
 env:
+  # Registry Configuration
   REGISTRY: ghcr.io
   REGISTRY_URL: https://ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/billingapi
-  RESOURCE_GROUP: Hms
-  APP_NAME: billing-api
-  ENVIRONMENT: hms-api-env
+  IMAGE_NAME: ${{ github.repository_owner }}/api-console  # Change this for each project
+  
+  # Azure Configuration
+  RESOURCE_GROUP: fastgst.in                              # Change this for each project
+  ACA_NAME: api-console                                   # Change this for each project
+  ACA_ENV: env-api-console                                # Change this for each project
+  ACA_LOCATION: centralindia                              # Change this for your preferred location
+  
+  # .NET Configuration
+  DOTNET_VERSION: "9.0.x"                                 # Change this for your .NET version
+  
+  # Container Configuration
+  TARGET_PORT: 8080                                       # Change this for your app's port
+  CPU: 0.25                                              # Change CPU allocation
+  MEMORY: 0.5Gi                                          # Change memory allocation
+  MIN_REPLICAS: 0                                        # Change minimum replicas
+  MAX_REPLICAS: 2                                        # Change maximum replicas
+  
+  # Environment Variables for Container
+  ASPNETCORE_ENVIRONMENT: Production                      # Change environment
+  CUSTOM_ENV_VAR: Sangeeth                               # Add/change your custom env vars
 
 jobs:
   build:
@@ -99,7 +92,7 @@ jobs:
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "9.0.x"
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Build
         run: dotnet build --configuration Release
@@ -137,27 +130,96 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
-      - name: Update YAML with image
-        run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image_tag }}"
-          # Update image in the YAML file
-          sed -i "s|image: placeholder-image|image: $IMAGE|g" ./containerapp.yaml
-          echo "Updated containerapp.yaml with image: $IMAGE"
 
       - name: Azure login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy to Azure Container Apps
+      - name: Ensure Resource Group exists
+        run: |
+          RG=$(az group show -n ${{ env.RESOURCE_GROUP }} --query name -o tsv || echo "")
+          if [ -z "$RG" ]; then
+            echo "Resource Group not found. Creating..."
+            az group create -n ${{ env.RESOURCE_GROUP }} -l ${{ env.ACA_LOCATION }}
+          fi
+
+      - name: Ensure Container App Environment exists
+        run: |
+          ENV_ID=$(az containerapp env show -g ${{ env.RESOURCE_GROUP }} -n ${{ env.ACA_ENV }} --query id -o tsv || echo "")
+          if [ -z "$ENV_ID" ]; then
+            echo "Environment not found. Creating..."
+            az containerapp env create \
+              -g ${{ env.RESOURCE_GROUP }} \
+              -n ${{ env.ACA_ENV }} \
+              --location ${{ env.ACA_LOCATION }} \
+              --logs-destination none
+          fi
+          
+          # Wait for environment to be fully provisioned
+          echo "Waiting for environment to be fully provisioned..."
+          for i in {1..30}; do
+            PROVISION_STATE=$(az containerapp env show -g ${{ env.RESOURCE_GROUP }} -n ${{ env.ACA_ENV }} --query properties.provisioningState -o tsv 2>/dev/null || echo "Unknown")
+            echo "Attempt $i: Environment provisioning state: $PROVISION_STATE"
+            
+            if [ "$PROVISION_STATE" = "Succeeded" ]; then
+              echo "Environment is ready!"
+              break
+            elif [ "$PROVISION_STATE" = "Failed" ]; then
+              echo "Environment provisioning failed!"
+              exit 1
+            else
+              echo "Still provisioning... waiting 30 seconds"
+              sleep 30
+            fi
+            
+            if [ $i -eq 30 ]; then
+              echo "Timeout waiting for environment to be ready"
+              exit 1
+            fi
+          done
+          
+          ENV_ID=$(az containerapp env show -g ${{ env.RESOURCE_GROUP }} -n ${{ env.ACA_ENV }} --query id -o tsv)
+          echo "ENV_ID=$ENV_ID" >> $GITHUB_ENV
+
+      - name: Check if Container App exists and create/update accordingly
+        run: |
+          EXISTS=$(az containerapp show -g ${{ env.RESOURCE_GROUP }} -n ${{ env.ACA_NAME }} --query id -o tsv 2>/dev/null || echo "")
+          if [ -z "$EXISTS" ]; then
+            echo "Container App not found. Creating..."
+            
+            # Create with registry credentials
+            az containerapp create \
+              -g ${{ env.RESOURCE_GROUP }} \
+              -n ${{ env.ACA_NAME }} \
+              --environment ${{ env.ACA_ENV }} \
+              --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image_tag }} \
+              --registry-server ${{ env.REGISTRY }} \
+              --registry-username ${{ github.actor }} \
+              --registry-password ${{ secrets.GH_PAT_TOKEN }} \
+              --target-port ${{ env.TARGET_PORT }} \
+              --ingress external \
+              --cpu ${{ env.CPU }} \
+              --memory ${{ env.MEMORY }} \
+              --min-replicas ${{ env.MIN_REPLICAS }} \
+              --max-replicas ${{ env.MAX_REPLICAS }} \
+              --env-vars ASPNETCORE_ENVIRONMENT=${{ env.ASPNETCORE_ENVIRONMENT }} ANOTHER_ENV=${{ env.CUSTOM_ENV_VAR }}
+              
+            echo "CONTAINER_APP_CREATED=true" >> $GITHUB_ENV
+          else
+            echo "Container App exists. Will update using deploy action."
+            echo "CONTAINER_APP_CREATED=false" >> $GITHUB_ENV
+          fi
+
+      - name: Deploy/Update Azure Container Apps
+        if: env.CONTAINER_APP_CREATED == 'false'
         uses: Azure/container-apps-deploy-action@v2
         with:
-          containerAppName: ${{ env.APP_NAME }}
+          containerAppName: ${{ env.ACA_NAME }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
-          containerAppEnvironment: ${{ env.ENVIRONMENT }}
+          containerAppEnvironment: ${{ env.ACA_ENV }}
           registryUrl: ${{ env.REGISTRY }}
           registryUsername: ${{ github.actor }}
           registryPassword: ${{ secrets.GH_PAT_TOKEN }}
-          yamlConfigPath: ./containerapp.yaml
+          imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image_tag }}
 ```
